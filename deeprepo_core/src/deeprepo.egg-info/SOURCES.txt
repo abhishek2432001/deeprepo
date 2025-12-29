@@ -1,0 +1,15 @@
+pyproject.toml
+src/deeprepo/__init__.py
+src/deeprepo/client.py
+src/deeprepo/ingestion.py
+src/deeprepo/interfaces.py
+src/deeprepo/registry.py
+src/deeprepo/storage.py
+src/deeprepo.egg-info/PKG-INFO
+src/deeprepo.egg-info/SOURCES.txt
+src/deeprepo.egg-info/dependency_links.txt
+src/deeprepo.egg-info/requires.txt
+src/deeprepo.egg-info/top_level.txt
+src/deeprepo/providers/__init__.py
+src/deeprepo/providers/gemini_v.py
+src/deeprepo/providers/openai_v.py
