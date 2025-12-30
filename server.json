@@ -1,7 +1,8 @@
 {
-  "name": "deeprepo",
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.abhishek2432001/deeprepo",
   "version": "1.0.0",
-  "description": "A production-grade RAG engine for local codebases with multi-provider AI support. Enables semantic code search, document ingestion, and AI-powered code analysis.",
+  "description": "Productivity-boosting RAG engine for codebases with multi-provider AI support and semantic search.",
   "author": {
     "name": "Abhishek",
     "email": "abhishekpandey2432001@gmail.com"
