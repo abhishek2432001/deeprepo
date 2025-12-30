@@ -16,7 +16,7 @@ class TestScanDirectory:
         (tmp_path / "readme.txt").write_text("docs")
         
         files = scan_directory(str(tmp_path))
-        py_files = [f for f in files if f.endswith('.py')]
+        py_files = [str(f) for f in files if str(f).endswith('.py')]
         
         assert len(py_files) == 2
     
@@ -32,7 +32,7 @@ class TestScanDirectory:
         
         files = scan_directory(str(tmp_path))
         
-        assert all(".git" not in f for f in files)
+        assert all(".git" not in str(f) for f in files)
     
     def test_scan_ignores_pycache(self, tmp_path):
         """Should ignore __pycache__ directories."""
@@ -40,7 +40,7 @@ class TestScanDirectory:
         pycache.mkdir()
         (pycache / "module.pyc").write_text("compiled")
         
-        files = scan_directory(str(tmp_path))
+        files = list(scan_directory(str(tmp_path)))
         
         assert len(files) == 0
 

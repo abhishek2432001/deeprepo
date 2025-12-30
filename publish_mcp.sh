@@ -16,10 +16,10 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Print colored output
-print_info() { echo -e "${BLUE}ℹ ${NC}$1"; }
-print_success() { echo -e "${GREEN}✓${NC} $1"; }
-print_warning() { echo -e "${YELLOW}⚠${NC} $1"; }
-print_error() { echo -e "${RED}✗${NC} $1"; }
+print_info() { echo -e "${BLUE}INFO: ${NC}$1"; }
+print_success() { echo -e "${GREEN}SUCCESS: ${NC}$1"; }
+print_warning() { echo -e "${YELLOW}WARNING: ${NC}$1"; }
+print_error() { echo -e "${RED}ERROR: ${NC}$1"; }
 
 # Display usage
 usage() {
@@ -206,7 +206,7 @@ publish() {
     
     # Publish
     if "$PUBLISHER_BIN" publish; then
-        print_success "Publication to MCP Registry successful! 🎉"
+        print_success "Publication to MCP Registry successful!"
         echo ""
         print_info "Your MCP server is now available in the marketplace!"
         echo ""
