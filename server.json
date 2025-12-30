@@ -8,8 +8,8 @@
     "email": "abhishekpandey2432001@gmail.com"
   },
   "repository": {
-    "type": "git",
-    "url": "https://github.com/abhishek2432001/deeprepo"
+    "url": "https://github.com/abhishek2432001/deeprepo",
+    "source": "github"
   },
   "homepage": "https://github.com/abhishek2432001/deeprepo",
   "documentation": "https://github.com/abhishek2432001/deeprepo#readme",
