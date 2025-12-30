@@ -6,6 +6,7 @@ A production-grade Python library for performing RAG (Retrieval Augmented Genera
 
 - **Raw Python Implementation**: No heavy frameworks (LangChain/LlamaIndex), no external Vector DBs
 - **Multiple AI Providers**: Supports Ollama (local), HuggingFace, OpenAI, and Gemini
+- **MCP Server Support**: Integrate with Cursor, Claude Desktop, Antigravity, and other MCP clients
 - **Decorator-Based Plugin System**: Easy provider registration and extensibility
 - **Vector Store**: NumPy-powered cosine similarity with JSON persistence
 - **RESTful API**: FastAPI service for easy integration
@@ -40,7 +41,7 @@ print(response['answer'])
 print(f"Sources: {response['sources']}")
 ```
 
-## 🤖 Supported AI Providers
+## Supported AI Providers
 
 | Provider | Cost | Speed | Best For |
 |----------|------|-------|----------|
@@ -67,7 +68,7 @@ client = DeepRepoClient(provider_name="openai")
 client = DeepRepoClient(provider_name="gemini")
 ```
 
-## 📊 Architecture
+## Architecture
 
 ```
 deeprepo_core/
@@ -77,6 +78,9 @@ deeprepo_core/
 │   ├── ingestion.py    # File scanning & chunking
 │   ├── interfaces.py   # Abstract base classes
 │   ├── registry.py     # Decorator-based registry
+│   ├── mcp/            # MCP server for AI assistants
+│   │   ├── server.py       # FastMCP server
+│   │   └── README.md       # MCP documentation
 │   └── providers/
 │       ├── ollama_v.py      # Ollama (local, FREE)
 │       ├── huggingface_v.py # HuggingFace (cloud, FREE)
@@ -91,7 +95,55 @@ deeprepo_core/
 - **Registry Pattern**: `@register_llm` decorator for dynamic provider discovery
 - **Singleton Pattern**: FastAPI lifespan loads client once at startup
 
-## 🌐 REST API
+## MCP Server (AI Assistant Integration)
+
+DeepRepo can be used as an MCP (Model Context Protocol) server, enabling integration with AI assistants like **Cursor**, **Claude Desktop**, and **Antigravity**.
+
+### Install MCP Dependencies
+
+```bash
+pip install deeprepo[mcp]
+```
+
+### Run the MCP Server
+
+```bash
+# Using CLI command
+deeprepo-mcp
+
+# Or as Python module
+python -m deeprepo.mcp.server
+```
+
+### Configure Cursor
+
+Create or edit `~/.cursor/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "deeprepo": {
+      "command": "python",
+      "args": ["-m", "deeprepo.mcp.server"],
+      "env": {"LLM_PROVIDER": "ollama"}
+    }
+  }
+}
+```
+
+### Available MCP Tools
+
+| Tool | Description |
+|------|-------------|
+| `ingest_codebase` | Ingest a directory into the vector store |
+| `query_codebase` | Query the knowledge base with RAG |
+| `search_similar` | Find similar code without LLM |
+| `get_stats` | Get vector store statistics |
+| `clear_history` | Clear conversation history |
+
+See [deeprepo_core/src/deeprepo/mcp/README.md](deeprepo_core/src/deeprepo/mcp/README.md) for detailed MCP configuration.
+
+## REST API
 
 Start the FastAPI server:
 
@@ -124,7 +176,7 @@ curl -X POST http://localhost:8000/chat \
   -d '{"query": "What does this code do?"}'
 ```
 
-## 🐳 Docker Deployment
+## Docker Deployment
 
 ```bash
 docker-compose up --build
@@ -161,7 +213,7 @@ The service will be available at `http://localhost:8000`.
 - Not recommended for production
 - **Setup**: Get free API key
 
-## 📝 Configuration
+## Configuration
 
 ### Environment Variables
 
@@ -227,12 +279,12 @@ python tests/integration/test_all_providers.py huggingface openai
 See [tests/README.md](tests/README.md) for detailed testing documentation.
 
 
-## 📚 Documentation
+## Documentation
 
 - **[INSTALLATION.md](INSTALLATION.md)** - Detailed installation and setup for each provider
 - **[PROJECT_SPEC.MD](PROJECT_SPEC.MD)** - Complete project architecture and specifications
 
-## 🔧 Development
+## Development
 
 ### Adding a New Provider
 
@@ -260,18 +312,18 @@ class MyLLM(LLMProvider):
         pass
 ```
 
-## 📄 License
+## License
 
 MIT License - see LICENSE file for details
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
-## 💡 Support
+## Support
 
 For issues, questions, or feature requests, please open an issue on GitHub.
 
 ---
 
-**Built with ❤️ for developers who want full control over their RAG pipelines**
+**Built for developers who want full control over their RAG pipelines**

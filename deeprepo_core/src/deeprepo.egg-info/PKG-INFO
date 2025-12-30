@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: deeprepo
-Version: 0.1.0
+Version: 0.1.1
 Summary: A production-grade Python library for RAG on local codebases with multi-provider AI support
 Author-email: Abhishek <abhishekpandey2432001@gmail.com>
 License: MIT
@@ -29,6 +29,8 @@ Requires-Dist: google-generativeai>=0.3.0
 Provides-Extra: huggingface
 Provides-Extra: ollama
 Provides-Extra: all-providers
+Provides-Extra: mcp
+Requires-Dist: mcp>=1.2.0; extra == "mcp"
 Provides-Extra: dev
 Requires-Dist: pytest>=7.0.0; extra == "dev"
 Requires-Dist: build>=0.10.0; extra == "dev"
