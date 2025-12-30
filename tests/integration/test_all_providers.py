@@ -50,22 +50,22 @@ def print_section(text: str):
 
 def print_success(text: str):
     """Print success message"""
-    print(f"{Colors.GREEN}✓ {text}{Colors.ENDC}")
+    print(f"{Colors.GREEN}SUCCESS: {text}{Colors.ENDC}")
 
 
 def print_error(text: str):
     """Print error message"""
-    print(f"{Colors.RED}✗ {text}{Colors.ENDC}")
+    print(f"{Colors.RED}ERROR: {text}{Colors.ENDC}")
 
 
 def print_warning(text: str):
     """Print warning message"""
-    print(f"{Colors.YELLOW}⚠ {text}{Colors.ENDC}")
+    print(f"{Colors.YELLOW}WARNING: {text}{Colors.ENDC}")
 
 
 def print_info(text: str):
     """Print info message"""
-    print(f"{Colors.CYAN}ℹ {text}{Colors.ENDC}")
+    print(f"{Colors.CYAN}INFO: {text}{Colors.ENDC}")
 
 
 class ProviderTester:
@@ -424,7 +424,7 @@ The API uses standard HTTP status codes:
 
 def main():
     """Main test runner"""
-    print_header("🧪 DeepRepo - Complete Provider Integration Test")
+    print_header("DeepRepo - Complete Provider Integration Test")
     
     print(f"""
 {Colors.BOLD}This script will test the complete RAG workflow with all providers:{Colors.ENDC}
@@ -460,13 +460,13 @@ def main():
         time.sleep(2)  # Small delay between providers
     
     # Print summary
-    print_header("📊 Test Summary")
+    print_header("Test Summary")
     
     print(f"\n{Colors.BOLD}{'Provider':<15} {'Status':<10} {'Chunks':<10} {'Ingest Time':<15} {'Query Time':<15}{Colors.ENDC}")
     print("-" * 80)
     
     for result in all_results:
-        status = f"{Colors.GREEN}✓ PASS{Colors.ENDC}" if result['success'] else f"{Colors.RED}✗ FAIL{Colors.ENDC}"
+        status = f"{Colors.GREEN}PASS{Colors.ENDC}" if result['success'] else f"{Colors.RED}FAIL{Colors.ENDC}"
         provider = f"{Colors.BOLD}{result['provider']:<15}{Colors.ENDC}"
         chunks = f"{result['chunks_created']:<10}"
         ingest_time = f"{result['ingestion_time']:.2f}s" if result['ingestion_time'] > 0 else "N/A"
@@ -476,7 +476,7 @@ def main():
         
         if result['errors']:
             for error in result['errors']:
-                print(f"  {Colors.RED}└─ Error: {error}{Colors.ENDC}")
+                print(f"  {Colors.RED}Error: {error}{Colors.ENDC}")
     
     # Overall status
     print("\n" + "=" * 80)
@@ -484,27 +484,27 @@ def main():
     total_count = len(all_results)
     
     if success_count == total_count:
-        print(f"{Colors.GREEN}{Colors.BOLD}✅ ALL TESTS PASSED ({success_count}/{total_count}){Colors.ENDC}")
+        print(f"{Colors.GREEN}{Colors.BOLD}ALL TESTS PASSED ({success_count}/{total_count}){Colors.ENDC}")
     elif success_count > 0:
-        print(f"{Colors.YELLOW}{Colors.BOLD}⚠ PARTIAL SUCCESS ({success_count}/{total_count}){Colors.ENDC}")
+        print(f"{Colors.YELLOW}{Colors.BOLD}PARTIAL SUCCESS ({success_count}/{total_count}){Colors.ENDC}")
     else:
-        print(f"{Colors.RED}{Colors.BOLD} ALL TESTS FAILED (0/{total_count}){Colors.ENDC}")
+        print(f"{Colors.RED}{Colors.BOLD}ALL TESTS FAILED (0/{total_count}){Colors.ENDC}")
     
     print("=" * 80)
     
     # Provider recommendations
-    print(f"\n{Colors.BOLD}💡 Recommendations:{Colors.ENDC}\n")
+    print(f"\n{Colors.BOLD}Recommendations:{Colors.ENDC}\n")
     
     successful_providers = [r['provider'] for r in all_results if r['success']]
     
     if 'ollama' in successful_providers:
-        print(f"{Colors.GREEN}✓ Ollama{Colors.ENDC} - Best for: FREE unlimited local usage, privacy, offline work")
+        print(f"{Colors.GREEN}Ollama{Colors.ENDC} - Best for: FREE unlimited local usage, privacy, offline work")
     if 'huggingface' in successful_providers:
-        print(f"{Colors.GREEN}✓ HuggingFace{Colors.ENDC} - Best for: FREE cloud-based, no local installation needed")
+        print(f"{Colors.GREEN}HuggingFace{Colors.ENDC} - Best for: FREE cloud-based, no local installation needed")
     if 'openai' in successful_providers:
-        print(f"{Colors.GREEN}✓ OpenAI{Colors.ENDC} - Best for: Production apps, most reliable, best quality")
+        print(f"{Colors.GREEN}OpenAI{Colors.ENDC} - Best for: Production apps, most reliable, best quality")
     if 'gemini' in successful_providers:
-        print(f"{Colors.GREEN}✓ Gemini{Colors.ENDC} - Best for: Limited free tier, Google ecosystem")
+        print(f"{Colors.GREEN}Gemini{Colors.ENDC} - Best for: Limited free tier, Google ecosystem")
     
     print(f"\n{Colors.CYAN}For most users, we recommend starting with Ollama (100% free, unlimited){Colors.ENDC}")
     print("=" * 80 + "\n")

@@ -80,12 +80,12 @@ import sys
 from deeprepo import DeepRepoClient
 
 def explore_codebase(project_path):
-    print(f"🔍 Indexing {project_path}...")
+    print(f"Indexing {project_path}...")
     
     client = DeepRepoClient(provider_name="ollama")
     result = client.ingest(project_path)
     
-    print(f"✅ Indexed {result['chunks_processed']} chunks from {result['files_scanned']} files\n")
+    print(f"Indexed {result['chunks_processed']} chunks from {result['files_scanned']} files\n")
     
     # Common onboarding questions
     questions = [
@@ -98,7 +98,7 @@ def explore_codebase(project_path):
         "Where should I start reading the code?",
     ]
     
-    print("📚 Let me explain this codebase:\n")
+    print("Let me explain this codebase:\n")
     print("="*70)
     
     for i, question in enumerate(questions, 1):
@@ -108,19 +108,19 @@ def explore_codebase(project_path):
         print("-"*70)
     
     # Interactive mode
-    print("\n\n💬 Interactive Mode - Ask me anything about this codebase!")
+    print("\n\nInteractive Mode - Ask me anything about this codebase!")
     print("(Type 'exit' to quit)\n")
     
     while True:
-        question = input("❓ Your question: ")
+        question = input("Your question: ")
         if question.lower() in ['exit', 'quit', 'q']:
             break
         
         response = client.query(question)
-        print(f"\n💡 {response['answer']}\n")
+        print(f"\n{response['answer']}\n")
         
         if response.get('sources'):
-            print("📂 Relevant files:")
+            print("Relevant files:")
             for source in response['sources'][:3]:
                 file = source['metadata']['file']
                 score = source['score']
@@ -222,8 +222,8 @@ class AIContextProvider:
         with open(output_file, 'w') as f:
             f.write(markdown)
         
-        print(f"✅ Context saved to {output_file}")
-        print(f"\n💡 In Cursor/Antigravity, type: @{output_file}")
+        print(f"Context saved to {output_file}")
+        print(f"\nIn Cursor/Antigravity, type: @{output_file}")
         print("   Then describe your task and the AI will have full context!\n")
         
         return output_file
@@ -326,7 +326,7 @@ class AutoDocumenter:
         with open(output_file, 'w') as f:
             f.write(readme)
         
-        print(f"\n✅ Documentation generated: {output_file}")
+        print(f"\nDocumentation generated: {output_file}")
         return output_file
 
 
@@ -390,14 +390,14 @@ class CodeReviewAssistant:
     def review_changes(self, changed_files):
         """Generate review comments for changed files."""
         
-        print("🔍 AI Code Review\n")
+        print("AI Code Review\n")
         print("="*70 + "\n")
         
         for file in changed_files:
             if not file:
                 continue
             
-            print(f"📄 {file}\n")
+            print(f"{file}\n")
             
             # Ask AI about this file
             questions = [
@@ -452,12 +452,12 @@ Interactive onboarding assistant for new developers.
 from deeprepo import DeepRepoClient
 
 def onboarding_session(project_path):
-    print("👋 Welcome to the team!\n")
+    print("Welcome to the team!\n")
     print("I'm your AI onboarding assistant. Let me help you understand this codebase.\n")
     
     client = DeepRepoClient(provider_name="ollama")
     
-    print("📦 Indexing the codebase... (this takes a minute)\n")
+    print("Indexing the codebase... (this takes a minute)\n")
     result = client.ingest(project_path)
     print(f"Indexed {result['files_scanned']} files\n")
     
@@ -470,7 +470,7 @@ def onboarding_session(project_path):
         ("Development Setup", "How do I set up my development environment?"),
     ]
     
-    print("📚 Let me give you a guided tour:\n")
+    print("Let me give you a guided tour:\n")
     print("="*70 + "\n")
     
     for title, question in tour:
@@ -479,7 +479,7 @@ def onboarding_session(project_path):
         print(f"{response['answer']}\n")
         
         if response.get('sources'):
-            print("📂 Key files to check:")
+            print("Key files to check:")
             for source in response['sources'][:3]:
                 print(f"   • {source['metadata']['file']}")
         
@@ -491,7 +491,7 @@ def onboarding_session(project_path):
     print("\n Now ask me anything! (Type 'exit' to quit)\n")
     
     while True:
-        question = input("❓ You: ")
+        question = input("You: ")
         if question.lower() in ['exit', 'quit', 'done']:
             print("\nGood luck with your onboarding!")
             break
@@ -567,7 +567,7 @@ client.ingest(".")
 for file in files:
     if file.endswith('.py'):
         response = client.query(f"What should I check before committing changes to {file}?")
-        print(f"\n⚠️  Review checklist for {file}:")
+        print(f"\nReview checklist for {file}:")
         print(response['answer'])
 
 END
@@ -589,8 +589,8 @@ def handle_code_question(message, say):
     question = message['text'].replace('ask-code', '').strip()
     response = client.query(question)
     
-    say(f"🤖 {response['answer']}\n\n" + 
-        f"📂 Relevant files: {', '.join([s['metadata']['file'] for s in response['sources'][:3]])}")
+    say(f"{response['answer']}\n\n" + 
+        f"Relevant files: {', '.join([s['metadata']['file'] for s in response['sources'][:3]])}")
 
 if __name__ == "__main__":
     app.start(port=3000)
@@ -650,7 +650,7 @@ ask-code
 
 ---
 
-## 🎯 Recommended Daily Workflow
+## Recommended Daily Workflow
 
 ### Morning Standup
 ```bash
@@ -683,7 +683,7 @@ python auto_document.py ~/my-project
 
 ---
 
-## 💡 Pro Tips
+## Pro Tips
 
 1. **Cache Your Index**: Keep a long-running DeepRepo instance to avoid re-ingesting:
    ```python
