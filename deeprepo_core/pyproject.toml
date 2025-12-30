@@ -38,6 +38,7 @@ dependencies = [
     "requests>=2.28.0",
     "openai>=1.0.0",
     "google-generativeai>=0.3.0",
+    "anthropic>=0.18.0",
 ]
 
 [project.urls]
@@ -56,13 +57,19 @@ ollama = [
 ]
 all-providers = [
     # Includes all optional providers (huggingface, ollama)
-    # Default providers (openai, gemini) are already included
+    # Default providers (openai, gemini, anthropic) are already included
+]
+mcp = [
+    "mcp>=1.2.0",
 ]
 dev = [
     "pytest>=7.0.0",
     "build>=0.10.0",
     "twine>=4.0.0",
 ]
+
+[project.scripts]
+deeprepo-mcp = "deeprepo.mcp.server:main"
 
 [build-system]
 requires = ["setuptools>=61.0"]

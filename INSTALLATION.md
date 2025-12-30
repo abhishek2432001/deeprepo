@@ -10,6 +10,7 @@ Complete installation and setup instructions for DeepRepo with all supported AI 
   - [Ollama (Recommended)](#ollama-recommended---free--unlimited)
   - [HuggingFace](#huggingface---free-cloud-based)
   - [OpenAI](#openai---paid-production-ready)
+  - [Anthropic](#anthropic---paid-production-ready)
   - [Gemini](#gemini---free-tier-limited)
 - [Docker Installation](#docker-installation)
 - [Verification](#verification)
@@ -205,6 +206,68 @@ client = DeepRepoClient(provider_name="openai")
 
 ---
 
+## Anthropic - Paid, Production Ready
+
+**Best for**: Production applications, excellent reasoning, long context windows
+
+### Step 1: Get API Key
+
+1. Visit https://console.anthropic.com/
+2. Sign up or log in
+3. Add a payment method (required)
+4. Navigate to **API Keys** section
+5. Click **"Create Key"**
+6. Copy the key (starts with `sk-ant-`)
+
+### Step 2: Set Environment Variable
+
+```bash
+# Temporary
+export ANTHROPIC_API_KEY="sk-ant-your_key_here"
+
+# Permanent
+echo 'export ANTHROPIC_API_KEY="sk-ant-your_key_here"' >> ~/.zshrc
+source ~/.zshrc
+```
+
+### Step 3: Use in Python
+
+```python
+import os
+os.environ["ANTHROPIC_API_KEY"] = "sk-ant-your_key"
+
+from deeprepo import DeepRepoClient
+client = DeepRepoClient(provider_name="anthropic")
+```
+
+**Anthropic is now ready!** ✓
+
+** Important Note:**
+- Anthropic does NOT provide a dedicated embeddings API
+- **You must use a different provider for embeddings** when using Anthropic for LLM
+- Recommended: Use OpenAI or HuggingFace for embeddings, Anthropic for LLM
+
+**Example with separate providers:**
+```python
+from deeprepo import DeepRepoClient
+
+# Use OpenAI for embeddings, Anthropic for LLM
+client = DeepRepoClient(
+    embedding_provider_name="openai",
+    llm_provider_name="anthropic"
+)
+```
+
+**Pricing (approximate):**
+- Claude 3.5 Sonnet: $0.003 per 1K input tokens, $0.015 per 1K output tokens
+- Claude 3 Opus: $0.015 per 1K input tokens, $0.075 per 1K output tokens
+- Claude 3 Haiku: $0.00025 per 1K input tokens, $0.00125 per 1K output tokens
+
+**Typical RAG costs:**
+- 1000 queries: ~$1.50-$3.00 (using Claude 3.5 Sonnet)
+
+---
+
 ## Gemini - Free Tier (Limited)
 
 **Best for**: Testing, small projects (not recommended for production)
@@ -270,8 +333,9 @@ Edit `docker-compose.yml` to set your provider:
 
 ```yaml
 environment:
-  - LLM_PROVIDER=ollama  # or huggingface, openai, gemini
+  - LLM_PROVIDER=ollama  # or huggingface, openai, anthropic, gemini
   - OPENAI_API_KEY=${OPENAI_API_KEY}
+  - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
   - HUGGINGFACE_API_KEY=${HUGGINGFACE_API_KEY}
 ```
 
@@ -307,6 +371,9 @@ python test_all_providers.py huggingface
 # Test OpenAI
 python test_all_providers.py openai
 
+# Test Anthropic
+python test_all_providers.py anthropic
+
 # Test all configured providers
 python test_all_providers.py
 ```
@@ -328,13 +395,65 @@ ollama          ✓ PASS    8          0.74s           3.91s
 ### Switching Providers
 
 ```python
-# In code
-client = DeepRepoClient(provider_name="ollama")  # or any provider
+# Same provider for both embeddings and LLM (backward compatible)
+client = DeepRepoClient(provider_name="ollama")  # or any provider: huggingface, openai, anthropic, gemini
 
-# Via environment variable
+# Different providers for embeddings and LLM
+client = DeepRepoClient(
+    embedding_provider_name="openai",    # Provider for embeddings
+    llm_provider_name="anthropic"        # Provider for LLM
+)
+
+# Via environment variables
 import os
 os.environ["LLM_PROVIDER"] = "ollama"
-client = DeepRepoClient()  # Uses LLM_PROVIDER env var
+client = DeepRepoClient()  # Uses LLM_PROVIDER env var for both
+
+# Separate providers via environment variables
+os.environ["EMBEDDING_PROVIDER"] = "openai"
+os.environ["LLM_PROVIDER"] = "anthropic"
+client = DeepRepoClient()  # Uses separate providers
+```
+
+### Using Different Providers for Embeddings and LLM
+
+DeepRepo supports using different providers for embeddings and LLM. This is especially useful when:
+
+1. **Using Anthropic**: Anthropic doesn't have an embeddings API, so you must use another provider for embeddings
+2. **Cost optimization**: Use free providers for embeddings, paid providers for LLM
+3. **Performance**: Mix fast embedding providers with powerful LLM providers
+
+**Examples:**
+
+```python
+# Anthropic LLM with OpenAI embeddings (recommended for Anthropic)
+client = DeepRepoClient(
+    embedding_provider_name="openai",
+    llm_provider_name="anthropic"
+)
+
+# Cost optimization: Free embeddings, paid LLM
+client = DeepRepoClient(
+    embedding_provider_name="huggingface",  # Free
+    llm_provider_name="openai"             # Paid
+)
+
+# Performance: Fast embeddings, powerful LLM
+client = DeepRepoClient(
+    embedding_provider_name="openai",       # Fast embeddings
+    llm_provider_name="anthropic"          # Powerful LLM
+)
+```
+
+**Environment Variables:**
+
+```bash
+# Set separate providers
+export EMBEDDING_PROVIDER=openai
+export LLM_PROVIDER=anthropic
+
+# Or use single provider (backward compatible)
+export LLM_PROVIDER=ollama
 ```
 
 ### Provider Selection Guide
@@ -356,6 +475,14 @@ client = DeepRepoClient()  # Uses LLM_PROVIDER env var
 - ✅ Production reliability
 - ✅ Excellent documentation
 - 💰 Can pay for usage
+
+**Choose Anthropic if you want:**
+- ✅ Excellent reasoning capabilities
+- ✅ Long context windows
+- ✅ Production reliability
+- 💰 Can pay for usage
+- ⚠️ **Important**: Must use another provider (OpenAI, HuggingFace) for embeddings
+- **Example**: `DeepRepoClient(embedding_provider_name="openai", llm_provider_name="anthropic")`
 
 **Choose Gemini if you:**
 - ⚠️ Only need very light testing
@@ -414,6 +541,24 @@ echo $OPENAI_API_KEY
 **"Insufficient quota":**
 - Add credits at https://platform.openai.com/billing
 - Check usage at https://platform.openai.com/usage
+
+### Anthropic Issues
+
+**"Invalid API key":**
+```bash
+# Verify key starts with "sk-ant-"
+echo $ANTHROPIC_API_KEY
+```
+
+**"Insufficient quota":**
+- Add credits at https://console.anthropic.com/settings/billing
+- Check usage at https://console.anthropic.com/settings/usage
+
+**"Embeddings not supported":**
+- Anthropic does NOT provide a dedicated embeddings API
+- **You must use a different provider for embeddings** when using Anthropic
+- Example: `DeepRepoClient(embedding_provider_name="openai", llm_provider_name="anthropic")`
+- Or use a different provider entirely for both LLM and embeddings
 
 ### Gemini Issues
 

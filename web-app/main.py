@@ -28,11 +28,32 @@ async def lifespan(app: FastAPI):
     
     Initializes the DeepRepoClient once when the server starts,
     avoiding re-initialization on every request.
+    
+    Supports separate embedding and LLM providers via environment variables:
+    - EMBEDDING_PROVIDER: Provider for embeddings
+    - LLM_PROVIDER: Provider for LLM
     """
+    import os
+    
     # Startup: Initialize the client
     print("Initializing DeepRepoClient...")
-    app_state.client = DeepRepoClient()
-    print(f"DeepRepoClient ready. Provider: {app_state.client.provider_name}")
+    
+    embedding_provider = os.environ.get("EMBEDDING_PROVIDER")
+    llm_provider = os.environ.get("LLM_PROVIDER")
+    
+    if embedding_provider or llm_provider:
+        app_state.client = DeepRepoClient(
+            embedding_provider_name=embedding_provider,
+            llm_provider_name=llm_provider
+        )
+        print(
+            f"DeepRepoClient ready - "
+            f"Embedding: {app_state.client.embedding_provider_name}, "
+            f"LLM: {app_state.client.llm_provider_name}"
+        )
+    else:
+        app_state.client = DeepRepoClient()
+        print(f"DeepRepoClient ready. Provider: {app_state.client.provider_name}")
     
     yield
     
@@ -85,7 +106,9 @@ class StatsResponse(BaseModel):
     total_files: int
     files: list[str] = []
     storage_path: str
-    provider: str = ""
+    embedding_provider: str = ""
+    llm_provider: str = ""
+    provider: str = ""  # For backward compatibility
 
 
 # API Endpoints
