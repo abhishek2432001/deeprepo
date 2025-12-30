@@ -1,6 +1,6 @@
 {
   "name": "deeprepo",
-  "version": "0.1.2",
+  "version": "1.0.0",
   "description": "A production-grade RAG engine for local codebases with multi-provider AI support. Enables semantic code search, document ingestion, and AI-powered code analysis.",
   "author": {
     "name": "Abhishek",
