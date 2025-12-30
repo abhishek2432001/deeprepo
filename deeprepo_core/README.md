@@ -2,7 +2,7 @@
 
 A production-grade Python library for performing RAG (Retrieval Augmented Generation) on local codebases with **multiple AI provider support**.
 
-> See the main [README.md](../README.md) in the repository root for complete documentation.
+> See the main [README.md](https://github.com/abhishek2432001/deeprepo/blob/main/README.md) in the repository root for complete documentation.
 
 ## Quick Install
 
