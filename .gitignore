@@ -73,6 +73,8 @@ htmlcov/
 
 # MCP Publisher (downloaded tool)
 .mcp-publisher/
+.mcpregistry_github_token
+.mcpregistry_registry_token
 
 # Vector store files (user data)
 *.json
