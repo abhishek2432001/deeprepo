@@ -29,11 +29,11 @@ usage() {
     echo ""
     echo "Prerequisites:"
     echo "  - server.json file must exist in the repository root"
-    echo "  - GitHub account for authentication (uses GitHub OIDC)"
+    echo "  - GitHub account for authentication (uses interactive GitHub login)"
     echo ""
     echo "The script will:"
     echo "  1. Download the MCP Publisher tool"
-    echo "  2. Authenticate with GitHub OIDC"
+    echo "  2. Authenticate with GitHub (interactive device code flow)"
     echo "  3. Publish your MCP server to the registry"
     exit 1
 }
@@ -179,10 +179,13 @@ check_files() {
 # Authenticate with MCP Registry
 authenticate() {
     print_info "Authenticating with MCP Registry..."
-    print_info "Using GitHub OIDC authentication"
+    print_info "Using interactive GitHub authentication (device code flow)"
+    echo ""
+    print_info "This will open a browser window or provide a code to enter at:"
+    print_info "  https://github.com/login/device"
     echo ""
     
-    if "$PUBLISHER_BIN" login github-oidc; then
+    if "$PUBLISHER_BIN" login github; then
         print_success "Authentication successful!"
     else
         print_error "Authentication failed!"
@@ -190,6 +193,7 @@ authenticate() {
         print_info "  1. A GitHub account"
         print_info "  2. Proper permissions"
         print_info "  3. Internet connectivity"
+        print_info "  4. Followed the device code flow instructions"
         exit 1
     fi
 }
@@ -251,7 +255,7 @@ main() {
     publish
     
     echo ""
-    print_success "All done!
+    print_success "All done!"
     echo ""
     print_info "Your MCP server is now published to the MCP Registry!"
 }
