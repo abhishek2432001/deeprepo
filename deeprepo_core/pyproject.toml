@@ -1,7 +1,7 @@
 [project]
 name = "deeprepo"
 version = "0.1.2"
-description = "A production-grade Python library for RAG on local codebases with multi-provider AI support"
+description = "A production-grade Python library for RAG on local codebases with multi-provider AI support and MCP (Model Context Protocol) server integration"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}
@@ -18,7 +18,11 @@ keywords = [
     "code-analysis",
     "ai",
     "machine-learning",
-    "nlp"
+    "nlp",
+    "mcp",
+    "model-context-protocol",
+    "cursor",
+    "claude-desktop"
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
