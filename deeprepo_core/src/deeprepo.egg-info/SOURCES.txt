@@ -1,3 +1,5 @@
+LICENSE
+README.md
 pyproject.toml
 src/deeprepo/__init__.py
 src/deeprepo/client.py
