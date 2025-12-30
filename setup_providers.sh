@@ -147,7 +147,7 @@ echo ""
 
 # Check Anthropic
 echo "═══════════════════════════════════════════════════════════════════════"
-echo " ANTHROPIC (Paid, Excellent Reasoning)"
+echo "5. ANTHROPIC (Paid, Excellent Reasoning)"
 echo "═══════════════════════════════════════════════════════════════════════"
 
 if [ -n "$ANTHROPIC_API_KEY" ]; then
@@ -224,23 +224,23 @@ if [ $READY_COUNT -gt 0 ]; then
     echo -e "${GREEN}You can now test your providers!${NC}"
     echo ""
     echo "Run the test script:"
-    echo "  python test_all_providers.py"
+    echo "  python tests/integration/test_all_providers.py"
     echo ""
     echo "Or test specific providers:"
     if command_exists ollama && check_service "http://localhost:11434/api/tags"; then
-        echo "  python test_all_providers.py ollama"
+        echo "  python tests/integration/test_all_providers.py ollama"
     fi
     if [ -n "$HUGGINGFACE_API_KEY" ] || [ -n "$HF_TOKEN" ]; then
-        echo "  python test_all_providers.py huggingface"
+        echo "  python tests/integration/test_all_providers.py huggingface"
     fi
     if [ -n "$OPENAI_API_KEY" ]; then
-        echo "  python test_all_providers.py openai"
+        echo "  python tests/integration/test_all_providers.py openai"
     fi
     if [ -n "$GEMINI_API_KEY" ]; then
-        echo "  python test_all_providers.py gemini"
+        echo "  python tests/integration/test_all_providers.py gemini"
     fi
     if [ -n "$ANTHROPIC_API_KEY" ]; then
-        echo "  python test_all_providers.py anthropic"
+        echo "  python tests/integration/test_all_providers.py anthropic"
     fi
     echo ""
     echo "═══════════════════════════════════════════════════════════════════════"
