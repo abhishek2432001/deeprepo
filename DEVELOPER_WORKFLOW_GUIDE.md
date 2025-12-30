@@ -1,6 +1,4 @@
-# 🤖 Using DeepRepo to Automate Your AI Coding Workflow
-
-**Congratulations on publishing DeepRepo! 🎉** Now let's turn it into your AI coding superpower.
+# Using DeepRepo to Automate Your AI Coding Workflow
 
 This guide shows you how to use DeepRepo with Cursor, Antigravity, and other AI assistants to automate your development workflow.
 
@@ -167,9 +165,9 @@ import sys
 class AIContextProvider:
     def __init__(self, project_path):
         self.client = DeepRepoClient(provider_name="ollama")
-        print(f"📦 Loading knowledge base for {project_path}...")
+        print(f"Loading knowledge base for {project_path}...")
         self.client.ingest(project_path)
-        print("✅ Ready!\n")
+        print("Ready!\n")
     
     def get_context_for_task(self, task_description):
         """Get relevant context for a coding task."""
@@ -306,7 +304,7 @@ class AutoDocumenter:
         readme += "---\n\n"
         
         for section, question in sections.items():
-            print(f"📝 Generating: {section}...")
+            print(f"Generating: {section}...")
             response = self.client.query(question, top_k=5)
             
             readme += f"## {section}\n\n"
@@ -461,7 +459,7 @@ def onboarding_session(project_path):
     
     print("📦 Indexing the codebase... (this takes a minute)\n")
     result = client.ingest(project_path)
-    print(f"✅ Indexed {result['files_scanned']} files\n")
+    print(f"Indexed {result['files_scanned']} files\n")
     
     # Guided tour
     tour = [

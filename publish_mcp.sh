@@ -251,7 +251,7 @@ main() {
     publish
     
     echo ""
-    print_success "All done! 🚀"
+    print_success "All done!
     echo ""
     print_info "Your MCP server is now published to the MCP Registry!"
 }
