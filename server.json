@@ -1,0 +1,220 @@
+{
+  "name": "deeprepo",
+  "version": "0.1.1",
+  "description": "A production-grade RAG engine for local codebases with multi-provider AI support. Enables semantic code search, document ingestion, and AI-powered code analysis.",
+  "author": {
+    "name": "Abhishek",
+    "email": "abhishekpandey2432001@gmail.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/abhishek2432001/deeprepo"
+  },
+  "homepage": "https://github.com/abhishek2432001/deeprepo",
+  "documentation": "https://github.com/abhishek2432001/deeprepo#readme",
+  "keywords": [
+    "rag",
+    "retrieval-augmented-generation",
+    "code-analysis",
+    "vector-search",
+    "semantic-search",
+    "llm",
+    "embeddings",
+    "ai",
+    "machine-learning",
+    "nlp",
+    "codebase-analysis",
+    "documentation"
+  ],
+  "license": "MIT",
+  "installation": {
+    "type": "pip",
+    "command": "pip install deeprepo[mcp]",
+    "requirements": {
+      "python": ">=3.10"
+    }
+  },
+  "entryPoint": {
+    "command": "python",
+    "args": [
+      "-m",
+      "deeprepo.mcp.server"
+    ]
+  },
+  "tools": [
+    {
+      "name": "ingest_codebase",
+      "description": "Ingest a codebase directory into the DeepRepo vector store. Scans all supported files, chunks them, generates embeddings, and stores them for later querying.",
+      "parameters": {
+        "path": {
+          "type": "string",
+          "description": "Absolute path to the directory to ingest",
+          "required": true
+        },
+        "chunk_size": {
+          "type": "integer",
+          "description": "Size of text chunks in characters",
+          "default": 1000,
+          "required": false
+        },
+        "overlap": {
+          "type": "integer",
+          "description": "Overlap between chunks in characters",
+          "default": 100,
+          "required": false
+        }
+      }
+    },
+    {
+      "name": "query_codebase",
+      "description": "Query the ingested codebase using RAG (Retrieval Augmented Generation). Embeds your question, finds the most relevant code chunks, and uses an LLM to generate an answer based on the context.",
+      "parameters": {
+        "question": {
+          "type": "string",
+          "description": "Your question about the codebase",
+          "required": true
+        },
+        "top_k": {
+          "type": "integer",
+          "description": "Number of relevant chunks to retrieve",
+          "default": 5,
+          "required": false
+        }
+      }
+    },
+    {
+      "name": "search_similar",
+      "description": "Search for similar code chunks without using the LLM. Useful for finding related code snippets based on semantic similarity. Faster and doesn't consume LLM tokens.",
+      "parameters": {
+        "query": {
+          "type": "string",
+          "description": "Text to search for similar content",
+          "required": true
+        },
+        "top_k": {
+          "type": "integer",
+          "description": "Number of results to return",
+          "default": 5,
+          "required": false
+        }
+      }
+    },
+    {
+      "name": "get_stats",
+      "description": "Get statistics about the current DeepRepo vector store. Returns information about how many chunks are stored, the number of files indexed, and other metadata.",
+      "parameters": {}
+    },
+    {
+      "name": "clear_history",
+      "description": "Clear the conversation history in DeepRepo. Useful when you want to start a fresh conversation without context from previous queries.",
+      "parameters": {}
+    }
+  ],
+  "resources": [
+    {
+      "uri": "deeprepo://stats",
+      "name": "Vector Store Statistics",
+      "description": "Current vector store statistics including chunk count, file count, and provider information (JSON format)"
+    },
+    {
+      "uri": "deeprepo://config",
+      "name": "DeepRepo Configuration",
+      "description": "Current DeepRepo configuration including embedding provider, LLM provider, and supported providers (JSON format)"
+    }
+  ],
+  "prompts": [
+    {
+      "name": "analyze_codebase",
+      "description": "Template for comprehensive codebase analysis",
+      "parameters": {
+        "directory": {
+          "type": "string",
+          "description": "Path to the directory to analyze",
+          "required": true
+        }
+      }
+    },
+    {
+      "name": "explain_function",
+      "description": "Template for explaining a specific function",
+      "parameters": {
+        "function_name": {
+          "type": "string",
+          "description": "Name of the function to explain",
+          "required": true
+        }
+      }
+    },
+    {
+      "name": "find_bugs",
+      "description": "Template for bug detection in the codebase",
+      "parameters": {}
+    }
+  ],
+  "configuration": {
+    "env": {
+      "LLM_PROVIDER": {
+        "description": "LLM provider to use for generating responses",
+        "default": "ollama",
+        "required": false,
+        "options": [
+          "ollama",
+          "openai",
+          "anthropic",
+          "gemini",
+          "huggingface"
+        ]
+      },
+      "EMBEDDING_PROVIDER": {
+        "description": "Embedding provider to use (can be different from LLM provider). Useful when using Anthropic (which doesn't have embeddings API).",
+        "default": "same as LLM_PROVIDER",
+        "required": false,
+        "options": [
+          "ollama",
+          "openai",
+          "huggingface",
+          "gemini"
+        ]
+      },
+      "OPENAI_API_KEY": {
+        "description": "OpenAI API key (required if using OpenAI provider)",
+        "required": false
+      },
+      "ANTHROPIC_API_KEY": {
+        "description": "Anthropic API key (required if using Anthropic provider)",
+        "required": false
+      },
+      "GEMINI_API_KEY": {
+        "description": "Google Gemini API key (required if using Gemini provider)",
+        "required": false
+      },
+      "HUGGINGFACE_API_KEY": {
+        "description": "HuggingFace API key (required if using HuggingFace provider). Can also use HF_TOKEN.",
+        "required": false
+      }
+    }
+  },
+  "features": [
+    "Multi-provider AI support (Ollama, OpenAI, Anthropic, Gemini, HuggingFace)",
+    "Separate embedding and LLM providers",
+    "Semantic code search",
+    "Document ingestion and chunking",
+    "Vector store with cosine similarity",
+    "Conversation history",
+    "Codebase analysis templates"
+  ],
+  "supportedPlatforms": [
+    "macOS",
+    "Linux",
+    "Windows"
+  ],
+  "category": "code-analysis",
+  "tags": [
+    "rag",
+    "code-analysis",
+    "semantic-search",
+    "documentation",
+    "ai-assistant"
+  ]
+}
+

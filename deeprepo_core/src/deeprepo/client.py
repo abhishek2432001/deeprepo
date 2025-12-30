@@ -21,7 +21,8 @@ class DeepRepoClient:
     coordinating ingestion, storage, and query operations.
     
     Attributes:
-        provider_name: Name of the LLM provider being used.
+        embedding_provider_name: Name of the embedding provider being used.
+        llm_provider_name: Name of the LLM provider being used.
         store: VectorStore instance for persisting embeddings.
         embedding_provider: Provider for generating embeddings.
         llm_provider: Provider for generating responses.
@@ -31,26 +32,61 @@ class DeepRepoClient:
     def __init__(
         self,
         provider_name: str | None = None,
+        embedding_provider_name: str | None = None,
+        llm_provider_name: str | None = None,
         storage_path: str = "vectors.json"
     ):
         """Initialize the DeepRepoClient.
         
         Args:
-            provider_name: Name of the LLM provider to use. Available options:
+            provider_name: Name of the provider to use for both embeddings and LLM.
+                This is a convenience parameter for backward compatibility.
+                If provided, it will be used for both embedding_provider_name and llm_provider_name.
+                Available options:
                 - "openai" (requires: pip install deeprepo[openai])
                 - "gemini" (requires: pip install deeprepo[gemini])
                 - "ollama" (requires: Ollama installed separately, see https://ollama.ai)
                 - "huggingface" (requires: pip install deeprepo[huggingface])
+                - "anthropic" (requires: pip install deeprepo[anthropic])
                 Defaults to LLM_PROVIDER env var, or "openai" if not set.
+            embedding_provider_name: Name of the embedding provider to use.
+                If not provided, defaults to provider_name or EMBEDDING_PROVIDER env var.
+                This allows using different providers for embeddings and LLM.
+                For example, use "openai" for embeddings and "anthropic" for LLM.
+            llm_provider_name: Name of the LLM provider to use.
+                If not provided, defaults to provider_name or LLM_PROVIDER env var.
+                This allows using different providers for embeddings and LLM.
             storage_path: Path to the vector storage file.
         """
-        self.provider_name = provider_name or os.environ.get("LLM_PROVIDER", "openai")
+        # Determine embedding provider
+        if embedding_provider_name:
+            self.embedding_provider_name = embedding_provider_name
+        elif provider_name:
+            self.embedding_provider_name = provider_name
+        else:
+            self.embedding_provider_name = os.environ.get(
+                "EMBEDDING_PROVIDER",
+                os.environ.get("LLM_PROVIDER", "openai")
+            )
+        
+        # Determine LLM provider
+        if llm_provider_name:
+            self.llm_provider_name = llm_provider_name
+        elif provider_name:
+            self.llm_provider_name = provider_name
+        else:
+            self.llm_provider_name = os.environ.get("LLM_PROVIDER", "openai")
+        
+        # For backward compatibility, keep provider_name attribute
+        # It represents the LLM provider by default
+        self.provider_name = self.llm_provider_name
+        
         self.storage_path = storage_path
         
         # Initialize components
         self.store = VectorStore(storage_path)
-        self.embedding_provider: EmbeddingProvider = get_embedding(self.provider_name)
-        self.llm_provider: LLMProvider = get_llm(self.provider_name)
+        self.embedding_provider: EmbeddingProvider = get_embedding(self.embedding_provider_name)
+        self.llm_provider: LLMProvider = get_llm(self.llm_provider_name)
         
         # Load existing vectors if available
         self.store.load()
@@ -215,7 +251,10 @@ class DeepRepoClient:
             return {
                 'total_chunks': 0,
                 'total_files': 0,
-                'storage_path': str(self.storage_path)
+                'storage_path': str(self.storage_path),
+                'embedding_provider': self.embedding_provider_name,
+                'llm_provider': self.llm_provider_name,
+                'provider': self.llm_provider_name  # For backward compatibility
             }
         
         unique_files = set(
@@ -228,5 +267,7 @@ class DeepRepoClient:
             'total_files': len(unique_files),
             'files': list(unique_files),
             'storage_path': str(self.storage_path),
-            'provider': self.provider_name
+            'embedding_provider': self.embedding_provider_name,
+            'llm_provider': self.llm_provider_name,
+            'provider': self.llm_provider_name  # For backward compatibility
         }
