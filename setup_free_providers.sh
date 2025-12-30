@@ -4,19 +4,19 @@
 # Helps you set up free alternatives when hitting quota limits
 
 echo "========================================================================"
-echo "🚀 DeepRepo - FREE Provider Setup Guide"
+echo "DeepRepo - FREE Provider Setup Guide"
 echo "========================================================================"
 echo ""
 echo "Default providers (OpenAI & Gemini) included, but here are FREE alternatives:"
 echo ""
 
 # Check current status
-echo "📊 Current Status:"
+echo "Current Status:"
 echo "========================================================================"
 
 # Check Ollama
 if curl -s http://localhost:11434/api/tags > /dev/null 2>&1; then
-    echo "✅ Ollama: READY"
+    echo "Ollama: READY"
     OLLAMA_READY=true
 else
     echo "Ollama: NOT INSTALLED"
@@ -112,7 +112,7 @@ fi
 echo ""
 
 echo "========================================================================"
-echo "📋 Quick Usage Examples"
+echo "Quick Usage Examples"
 echo "========================================================================"
 echo ""
 echo "Using HuggingFace:"
@@ -132,7 +132,7 @@ echo "  python test_full_rag_light.py"
 echo ""
 
 echo "========================================================================"
-echo "💡 Recommendation"
+echo "Recommendation"
 echo "========================================================================"
 echo ""
 if [ "$OLLAMA_READY" = true ]; then
@@ -147,13 +147,13 @@ else
     echo "For fastest setup: Use HuggingFace (2 min)"
     echo "   Get token: https://huggingface.co/settings/tokens"
     echo ""
-    echo "🏆 For best experience: Use Ollama (5 min)"
+    echo "For best experience: Use Ollama (5 min)"
     echo "   Install: https://ollama.ai/download"
 fi
 
 echo ""
 echo "========================================================================"
-echo "📚 More Information"
+echo "More Information"
 echo "========================================================================"
 echo "  • Full documentation: See README.md"
 echo "  • Test examples: test_full_rag.py, test_full_rag_light.py"
