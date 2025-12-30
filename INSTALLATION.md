@@ -44,7 +44,7 @@ This installs the core library with minimal dependencies. Providers are loaded d
 ### 3. Verify Installation
 
 ```bash
-python -c "from deeprepo import DeepRepoClient; print('✓ DeepRepo installed successfully')"
+python -c "from deeprepo import DeepRepoClient; print('DeepRepo installed successfully')"
 ```
 
 ## Provider Setup
@@ -110,7 +110,7 @@ from deeprepo import DeepRepoClient
 client = DeepRepoClient(provider_name="ollama")
 ```
 
-**Ollama is now ready!** ✓
+**Ollama is now ready!**
 
 ---
 
@@ -152,7 +152,7 @@ from deeprepo import DeepRepoClient
 client = DeepRepoClient(provider_name="huggingface")
 ```
 
-**HuggingFace is now ready!** ✓
+**HuggingFace is now ready!**
 
 **Rate Limits:**
 - Free tier: 300 requests/hour (registered users)
@@ -193,7 +193,7 @@ from deeprepo import DeepRepoClient
 client = DeepRepoClient(provider_name="openai")
 ```
 
-**OpenAI is now ready!** ✓
+**OpenAI is now ready!**
 
 **Pricing (approximate):**
 - Embeddings: $0.00002 per 1K tokens (~$0.01 per 100 documents)
@@ -240,7 +240,7 @@ from deeprepo import DeepRepoClient
 client = DeepRepoClient(provider_name="anthropic")
 ```
 
-**Anthropic is now ready!** ✓
+**Anthropic is now ready!**
 
 ** Important Note:**
 - Anthropic does NOT provide a dedicated embeddings API
@@ -300,9 +300,9 @@ from deeprepo import DeepRepoClient
 client = DeepRepoClient(provider_name="gemini")
 ```
 
-**Gemini is now ready!** ✓
+**Gemini is now ready!**
 
-**⚠️ Important Limitations:**
+**Important Limitations:**
 - Free tier: **15 requests per minute** (very limited!)
 - Easy to hit quota errors
 - Not suitable for production use
@@ -383,9 +383,9 @@ python test_all_providers.py
 ```
 Provider        Status     Chunks     Ingest Time     Query Time     
 ------------------------------------------------------------------------
-ollama          ✓ PASS    8          0.74s           3.91s          
+ollama          PASS      8          0.74s           3.91s          
 
-✅ ALL TESTS PASSED (1/1)
+ALL TESTS PASSED (1/1)
 ```
 
 ---
@@ -459,34 +459,34 @@ export LLM_PROVIDER=ollama
 ### Provider Selection Guide
 
 **Choose Ollama if you want:**
-- ✅ FREE and unlimited usage
-- ✅ Complete privacy (local only)
-- ✅ Offline capability
-- ✅ Fastest performance (no network)
+- FREE and unlimited usage
+- Complete privacy (local only)
+- Offline capability
+- Fastest performance (no network)
 
 **Choose HuggingFace if you want:**
-- ✅ FREE cloud-based solution
-- ✅ No local installation
-- ✅ Access from anywhere
-- ⚠️ Can accept rate limits
+- FREE cloud-based solution
+- No local installation
+- Access from anywhere
+- Can accept rate limits
 
 **Choose OpenAI if you want:**
-- ✅ Best quality responses
-- ✅ Production reliability
-- ✅ Excellent documentation
-- 💰 Can pay for usage
+- Best quality responses
+- Production reliability
+- Excellent documentation
+- Can pay for usage
 
 **Choose Anthropic if you want:**
-- ✅ Excellent reasoning capabilities
-- ✅ Long context windows
-- ✅ Production reliability
-- 💰 Can pay for usage
-- ⚠️ **Important**: Must use another provider (OpenAI, HuggingFace) for embeddings
+- Excellent reasoning capabilities
+- Long context windows
+- Production reliability
+- Can pay for usage
+- **Important**: Must use another provider (OpenAI, HuggingFace) for embeddings
 - **Example**: `DeepRepoClient(embedding_provider_name="openai", llm_provider_name="anthropic")`
 
 **Choose Gemini if you:**
-- ⚠️ Only need very light testing
-- ⚠️ Understand the strict limitations
+- Only need very light testing
+- Understand the strict limitations
 - Use **Ollama or HuggingFace instead** for real work
 
 ---

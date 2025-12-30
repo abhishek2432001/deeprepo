@@ -15,10 +15,10 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Print colored output
-print_info() { echo -e "${BLUE}ℹ ${NC}$1"; }
-print_success() { echo -e "${GREEN}✓${NC} $1"; }
-print_warning() { echo -e "${YELLOW}⚠${NC} $1"; }
-print_error() { echo -e "${RED}✗${NC} $1"; }
+print_info() { echo -e "${BLUE}INFO: ${NC}$1"; }
+print_success() { echo -e "${GREEN}SUCCESS: ${NC}$1"; }
+print_warning() { echo -e "${YELLOW}WARNING: ${NC}$1"; }
+print_error() { echo -e "${RED}ERROR: ${NC}$1"; }
 
 # Display usage
 usage() {
@@ -198,7 +198,7 @@ upload_test() {
 
 # Upload to PyPI
 upload_prod() {
-    print_warning "⚠️  WARNING: You are about to publish to PRODUCTION PyPI!"
+    print_warning "WARNING: You are about to publish to PRODUCTION PyPI!"
     print_warning "This action CANNOT be undone. Make sure you tested on TestPyPI first."
     echo ""
     read -p "Are you sure you want to continue? (yes/NO) " -r
@@ -217,7 +217,7 @@ upload_prod() {
     python -m twine upload dist/*
     
     if [ $? -eq 0 ]; then
-        print_success "Upload to PyPI successful! 🎉"
+        print_success "Upload to PyPI successful!"
         echo ""
         print_info "Your package is now live!"
         echo -e "  ${YELLOW}pip install deeprepo${NC}"
@@ -273,7 +273,7 @@ main() {
     fi
     
     echo ""
-    print_success "All done! 🚀"
+    print_success "All done!"
 }
 
 # Run main function
