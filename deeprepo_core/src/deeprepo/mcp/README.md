@@ -142,10 +142,38 @@ The MCP configuration can be set in `.gemini/mcp_servers.json`:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `LLM_PROVIDER` | AI provider to use | `ollama` |
+| `LLM_PROVIDER` | LLM provider to use | `ollama` |
+| `EMBEDDING_PROVIDER` | Embedding provider to use | Same as `LLM_PROVIDER` |
 | `OPENAI_API_KEY` | OpenAI API key (if using OpenAI) | - |
+| `ANTHROPIC_API_KEY` | Anthropic API key (if using Anthropic) | - |
 | `GOOGLE_API_KEY` | Google API key (if using Gemini) | - |
-| `HF_API_KEY` | HuggingFace API key (if using HuggingFace) | - |
+| `HF_API_KEY` or `HUGGINGFACE_API_KEY` | HuggingFace API key (if using HuggingFace) | - |
+
+### Using Different Providers for Embeddings and LLM
+
+You can use different providers for embeddings and LLM by setting both environment variables:
+
+```json
+{
+  "mcpServers": {
+    "deeprepo": {
+      "command": "python",
+      "args": ["-m", "deeprepo.mcp.server"],
+      "env": {
+        "EMBEDDING_PROVIDER": "openai",
+        "LLM_PROVIDER": "anthropic",
+        "OPENAI_API_KEY": "sk-...",
+        "ANTHROPIC_API_KEY": "sk-ant-..."
+      }
+    }
+  }
+}
+```
+
+**Common Use Cases:**
+- **Anthropic LLM**: Since Anthropic doesn't have embeddings, pair it with OpenAI or HuggingFace
+- **Cost optimization**: Use free HuggingFace for embeddings, paid OpenAI for LLM
+- **Performance**: Use fast OpenAI for embeddings, powerful Anthropic for LLM
 
 ---
 
@@ -199,8 +227,9 @@ Once configured, you can interact with DeepRepo through your AI assistant:
 
 ### LLM not responding
 1. For Ollama: Ensure Ollama is running (`ollama serve`)
-2. For OpenAI/Gemini: Check API keys are set
+2. For OpenAI/Gemini/Anthropic: Check API keys are set
 3. Check the stderr output for error messages
+4. If using Anthropic, ensure you've set `EMBEDDING_PROVIDER` to a different provider (Anthropic doesn't have embeddings)
 
 ### Tools not appearing
 1. Restart your AI assistant after configuration changes

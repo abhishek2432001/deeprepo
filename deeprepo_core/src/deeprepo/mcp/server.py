@@ -12,11 +12,16 @@ Usage:
     deeprepo-mcp
     
 Configuration:
-    Set LLM_PROVIDER environment variable to choose the provider:
+    Set LLM_PROVIDER environment variable to choose the LLM provider:
     - "ollama" (default, free)
     - "openai"
     - "gemini"
     - "huggingface"
+    - "anthropic"
+    
+    Optionally set EMBEDDING_PROVIDER to use a different provider for embeddings:
+    - Useful when using Anthropic (which doesn't have embeddings API)
+    - Example: EMBEDDING_PROVIDER=openai LLM_PROVIDER=anthropic
 """
 
 import logging
@@ -43,14 +48,35 @@ _client: Optional["DeepRepoClient"] = None  # type: ignore
 def get_client():
     """Get or create the DeepRepo client instance.
     
+    Supports separate embedding and LLM providers via environment variables:
+    - EMBEDDING_PROVIDER: Provider for embeddings (defaults to LLM_PROVIDER)
+    - LLM_PROVIDER: Provider for LLM (defaults to "openai")
+    
     Returns:
         DeepRepoClient: The singleton client instance
     """
     global _client
     if _client is None:
+        import os
         from deeprepo import DeepRepoClient
-        _client = DeepRepoClient()
-        logger.info(f"DeepRepo client initialized with provider: {_client.provider_name}")
+        
+        embedding_provider = os.environ.get("EMBEDDING_PROVIDER")
+        llm_provider = os.environ.get("LLM_PROVIDER")
+        
+        if embedding_provider or llm_provider:
+            _client = DeepRepoClient(
+                embedding_provider_name=embedding_provider,
+                llm_provider_name=llm_provider
+            )
+        else:
+            # Backward compatibility: use single provider_name
+            _client = DeepRepoClient()
+        
+        logger.info(
+            f"DeepRepo client initialized - "
+            f"Embedding: {_client.embedding_provider_name}, "
+            f"LLM: {_client.llm_provider_name}"
+        )
     return _client
 
 
@@ -264,10 +290,11 @@ def get_config_resource() -> str:
     import json
     
     config = {
+        "embedding_provider": os.environ.get("EMBEDDING_PROVIDER", os.environ.get("LLM_PROVIDER", "ollama")),
         "llm_provider": os.environ.get("LLM_PROVIDER", "ollama"),
         "storage_path": "vectors.json",
         "mcp_server_version": "1.0.0",
-        "supported_providers": ["openai", "gemini", "ollama", "huggingface"]
+        "supported_providers": ["openai", "gemini", "ollama", "huggingface", "anthropic"]
     }
     return json.dumps(config, indent=2)
 

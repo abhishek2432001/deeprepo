@@ -5,7 +5,7 @@ A production-grade Python library for performing RAG (Retrieval Augmented Genera
 ## Features
 
 - **Raw Python Implementation**: No heavy frameworks (LangChain/LlamaIndex), no external Vector DBs
-- **Multiple AI Providers**: Supports Ollama (local), HuggingFace, OpenAI, and Gemini
+- **Multiple AI Providers**: Supports Ollama (local), HuggingFace, OpenAI, Anthropic, and Gemini
 - **MCP Server Support**: Integrate with Cursor, Claude Desktop, Antigravity, and other MCP clients
 - **Decorator-Based Plugin System**: Easy provider registration and extensibility
 - **Vector Store**: NumPy-powered cosine similarity with JSON persistence
@@ -28,8 +28,15 @@ See [INSTALLATION.md](INSTALLATION.md) for detailed setup instructions for each 
 ```python
 from deeprepo import DeepRepoClient
 
-# Initialize with Ollama (FREE, local)
+# Initialize with Ollama (FREE, local) - same provider for both embeddings and LLM
 client = DeepRepoClient(provider_name="ollama")
+
+# Or use different providers for embeddings and LLM
+# Example: OpenAI for embeddings, Anthropic for LLM
+client = DeepRepoClient(
+    embedding_provider_name="openai",
+    llm_provider_name="anthropic"
+)
 
 # Ingest documents
 result = client.ingest("/path/to/your/code")
@@ -48,6 +55,7 @@ print(f"Sources: {response['sources']}")
 | **Ollama** | FREE | Fast | Local development, privacy, offline work |
 | **HuggingFace** | FREE* | Medium | Cloud-based, no local setup |
 | **OpenAI** | Paid | Very Fast | Production, best quality |
+| **Anthropic** | Paid | Very Fast | Production, excellent reasoning |
 | **Gemini** | FREE* | Medium | Testing, Google ecosystem |
 
 *Free tier with rate limits
@@ -55,6 +63,7 @@ print(f"Sources: {response['sources']}")
 ### Provider Examples
 
 ```python
+# Same provider for both embeddings and LLM
 # Ollama (Recommended - FREE and unlimited)
 client = DeepRepoClient(provider_name="ollama")
 
@@ -64,8 +73,22 @@ client = DeepRepoClient(provider_name="huggingface")
 # OpenAI (Paid, best quality)
 client = DeepRepoClient(provider_name="openai")
 
+# Anthropic (Paid, excellent reasoning)
+# Note: Anthropic doesn't have embeddings API, so use with another provider
+client = DeepRepoClient(
+    embedding_provider_name="openai",  # Use OpenAI for embeddings
+    llm_provider_name="anthropic"     # Use Anthropic for LLM
+)
+
 # Gemini (Free tier, limited)
 client = DeepRepoClient(provider_name="gemini")
+
+# Mix and match providers
+# Example: Use free HuggingFace for embeddings, paid OpenAI for LLM
+client = DeepRepoClient(
+    embedding_provider_name="huggingface",
+    llm_provider_name="openai"
+)
 ```
 
 ## Architecture
@@ -85,6 +108,7 @@ deeprepo_core/
 │       ├── ollama_v.py      # Ollama (local, FREE)
 │       ├── huggingface_v.py # HuggingFace (cloud, FREE)
 │       ├── openai_v.py      # OpenAI (paid)
+│       ├── anthropic_v.py   # Anthropic (paid)
 │       └── gemini_v.py      # Gemini (free tier)
 ```
 
@@ -125,7 +149,28 @@ Create or edit `~/.cursor/mcp.json`:
     "deeprepo": {
       "command": "python",
       "args": ["-m", "deeprepo.mcp.server"],
-      "env": {"LLM_PROVIDER": "ollama"}
+      "env": {
+        "LLM_PROVIDER": "ollama"
+      }
+    }
+  }
+}
+```
+
+**Using separate providers:**
+
+```json
+{
+  "mcpServers": {
+    "deeprepo": {
+      "command": "python",
+      "args": ["-m", "deeprepo.mcp.server"],
+      "env": {
+        "EMBEDDING_PROVIDER": "openai",
+        "LLM_PROVIDER": "anthropic",
+        "OPENAI_API_KEY": "sk-...",
+        "ANTHROPIC_API_KEY": "sk-ant-..."
+      }
     }
   }
 }
@@ -207,6 +252,15 @@ The service will be available at `http://localhost:8000`.
 - Paid (~$0.001 per query)
 - **Setup**: Get API key, add payment method
 
+### Anthropic
+- Excellent reasoning and long context
+- Very fast and reliable
+- Production-ready
+- Paid (~$0.003 per query)
+- **Setup**: Get API key, add payment method
+- **Important**: Anthropic does NOT provide a dedicated embeddings API
+- **Recommended**: Use Anthropic for LLM with another provider (OpenAI, HuggingFace) for embeddings
+
 ### Gemini
 - FREE tier available
 - Very limited (15 requests/minute)
@@ -221,24 +275,43 @@ The service will be available at `http://localhost:8000`.
 |----------|-------------|--------------|
 | `HUGGINGFACE_API_KEY` or `HF_TOKEN` | HuggingFace API token | HuggingFace provider |
 | `OPENAI_API_KEY` | OpenAI API key | OpenAI provider |
+| `ANTHROPIC_API_KEY` | Anthropic API key | Anthropic provider |
 | `GEMINI_API_KEY` | Google Gemini API key | Gemini provider |
 
 ### Switching Providers
 
 ```python
-# Set provider when initializing client
+# Same provider for both embeddings and LLM (backward compatible)
 client = DeepRepoClient(
-    provider_name="ollama",  # or "huggingface", "openai", "gemini"
+    provider_name="ollama",  # or "huggingface", "openai", "anthropic", "gemini"
+    storage_path="vectors.json"
+)
+
+# Different providers for embeddings and LLM
+client = DeepRepoClient(
+    embedding_provider_name="openai",    # Provider for embeddings
+    llm_provider_name="anthropic",      # Provider for LLM
     storage_path="vectors.json"
 )
 ```
 
-Or use environment variable:
+Or use environment variables:
 
 ```bash
-export LLM_PROVIDER=ollama  # Default provider
+# Single provider (backward compatible)
+export LLM_PROVIDER=ollama
+python your_script.py
+
+# Separate providers
+export EMBEDDING_PROVIDER=openai
+export LLM_PROVIDER=anthropic
 python your_script.py
 ```
+
+**Common Use Cases:**
+- **Anthropic for LLM**: Since Anthropic doesn't have embeddings, pair it with OpenAI or HuggingFace
+- **Cost optimization**: Use free HuggingFace for embeddings, paid OpenAI for LLM
+- **Performance**: Use fast OpenAI for embeddings, powerful Anthropic for LLM
 
 ## Testing
 
