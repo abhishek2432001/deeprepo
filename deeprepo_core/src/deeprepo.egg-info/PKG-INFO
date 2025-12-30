@@ -5,7 +5,17 @@ Summary: A production-grade Python library for RAG on local codebases
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 Requires-Dist: numpy>=1.24.0
-Requires-Dist: openai>=1.0.0
-Requires-Dist: google-generativeai>=0.3.0
+Requires-Dist: requests>=2.31.0
+Provides-Extra: openai
+Requires-Dist: openai>=1.0.0; extra == "openai"
+Provides-Extra: gemini
+Requires-Dist: google-generativeai>=0.3.0; extra == "gemini"
+Provides-Extra: huggingface
+Requires-Dist: requests>=2.31.0; extra == "huggingface"
+Provides-Extra: ollama
+Requires-Dist: requests>=2.31.0; extra == "ollama"
+Provides-Extra: all-providers
+Requires-Dist: openai>=1.0.0; extra == "all-providers"
+Requires-Dist: google-generativeai>=0.3.0; extra == "all-providers"
 Provides-Extra: dev
 Requires-Dist: pytest>=7.0.0; extra == "dev"

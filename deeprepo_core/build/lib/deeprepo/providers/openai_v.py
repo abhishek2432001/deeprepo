@@ -17,8 +17,6 @@ class OpenAIEmbedding(EmbeddingProvider):
     
     Requires OPENAI_API_KEY environment variable to be set.
     """
-    install_hint = "pip install deeprepo[openai]"
-    package_requirement = "openai"
     
     def __init__(self, model: str = "text-embedding-3-small"):
         """Initialize the OpenAI embedding provider.
@@ -74,8 +72,6 @@ class OpenAILLM(LLMProvider):
     
     Requires OPENAI_API_KEY environment variable to be set.
     """
-    install_hint = "pip install deeprepo[openai]"
-    package_requirement = "openai"
     
     def __init__(self, model: str = "gpt-4o-mini"):
         """Initialize the OpenAI LLM provider.

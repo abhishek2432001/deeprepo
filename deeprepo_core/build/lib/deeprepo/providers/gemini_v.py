@@ -17,8 +17,6 @@ class GeminiEmbedding(EmbeddingProvider):
     
     Requires GEMINI_API_KEY environment variable to be set.
     """
-    install_hint = "pip install deeprepo[gemini]"
-    package_requirement = "google-generativeai"
     
     def __init__(self, model: str = "models/embedding-001"):
         """Initialize the Gemini embedding provider.
@@ -75,8 +73,6 @@ class GeminiLLM(LLMProvider):
     
     Requires GEMINI_API_KEY environment variable to be set.
     """
-    install_hint = "pip install deeprepo[gemini]"
-    package_requirement = "google-generativeai"
     
     def __init__(self, model: str = "gemini-1.5-flash"):
         """Initialize the Gemini LLM provider.

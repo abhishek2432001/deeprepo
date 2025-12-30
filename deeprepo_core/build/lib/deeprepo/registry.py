@@ -11,7 +11,7 @@ from typing import Type
 from deeprepo.interfaces import EmbeddingProvider, LLMProvider
 
 
-# Provider class registries
+# Global registries for providers
 LLM_REGISTRY: dict[str, Type[LLMProvider]] = {}
 EMBEDDING_REGISTRY: dict[str, Type[EmbeddingProvider]] = {}
 
@@ -52,8 +52,6 @@ def discover_providers():
     """Auto-discover and import all provider modules.
     Uses pkgutil to find and import all modules in the providers package,
     triggering their decorator registrations.
-    
-    Providers with missing optional dependencies will be skipped gracefully.
     """
     from deeprepo import providers
     
@@ -65,16 +63,7 @@ def discover_providers():
         try:
             importlib.import_module(full_module_name)
         except ImportError as e:
-            # Silently skip providers with missing dependencies
-            # They can be installed via optional dependencies
-            pass
-        except Exception as e:
-            # Log other errors but don't fail completely
-            import warnings
-            warnings.warn(
-                f"Could not load provider {module_name}: {e}",
-                UserWarning
-            )
+            print(f"Warning: Could not import provider {full_module_name}: {e}")
 
 
 def get_llm(name: str) -> LLMProvider:
@@ -88,30 +77,8 @@ def get_llm(name: str) -> LLMProvider:
     """
     if name not in LLM_REGISTRY:
         available = list(LLM_REGISTRY.keys())
-        error_msg = f"LLM provider '{name}' not found. Available: {available}"
-        
-        # Try to get installation hint from a registered provider with same name
-        # (in case embedding provider exists but LLM doesn't)
-        if name in EMBEDDING_REGISTRY:
-            provider_class = EMBEDDING_REGISTRY[name]
-            if hasattr(provider_class, 'install_hint') and provider_class.install_hint:
-                error_msg += f"\n\n{provider_class.install_hint}"
-        
-        raise KeyError(error_msg)
-    
-    provider_class = LLM_REGISTRY[name]
-    
-    try:
-        return provider_class()
-    except ImportError as e:
-        # Re-raise with helpful message if we know the package requirement
-        if hasattr(provider_class, 'package_requirement') and provider_class.package_requirement:
-            install_hint = getattr(provider_class, 'install_hint', '')
-            raise ImportError(
-                f"{name.capitalize()} provider requires '{provider_class.package_requirement}' package. "
-                f"Install with: {install_hint}"
-            ) from e
-        raise
+        raise KeyError(f"LLM provider '{name}' not found. Available: {available}")
+    return LLM_REGISTRY[name]()
 
 
 def get_embedding(name: str) -> EmbeddingProvider:
@@ -125,26 +92,5 @@ def get_embedding(name: str) -> EmbeddingProvider:
     """
     if name not in EMBEDDING_REGISTRY:
         available = list(EMBEDDING_REGISTRY.keys())
-        error_msg = f"Embedding provider '{name}' not found. Available: {available}"
-        # Try to get installation hint from a registered LLM provider with same name
-        # (in case LLM provider exists but embedding doesn't)
-        if name in LLM_REGISTRY:
-            provider_class = LLM_REGISTRY[name]
-            if hasattr(provider_class, 'install_hint') and provider_class.install_hint:
-                error_msg += f"\n\n{provider_class.install_hint}"
-        
-        raise KeyError(error_msg)
-    
-    provider_class = EMBEDDING_REGISTRY[name]
-    
-    try:
-        return provider_class()
-    except ImportError as e:
-        # Re-raise with helpful message if we know the package requirement
-        if hasattr(provider_class, 'package_requirement') and provider_class.package_requirement:
-            install_hint = getattr(provider_class, 'install_hint', '')
-            raise ImportError(
-                f"{name.capitalize()} provider requires '{provider_class.package_requirement}' package. "
-                f"Install with: {install_hint}"
-            ) from e
-        raise
+        raise KeyError(f"Embedding provider '{name}' not found. Available: {available}")
+    return EMBEDDING_REGISTRY[name]()

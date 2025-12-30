@@ -12,4 +12,6 @@ src/deeprepo.egg-info/requires.txt
 src/deeprepo.egg-info/top_level.txt
 src/deeprepo/providers/__init__.py
 src/deeprepo/providers/gemini_v.py
+src/deeprepo/providers/huggingface_v.py
+src/deeprepo/providers/ollama_v.py
 src/deeprepo/providers/openai_v.py

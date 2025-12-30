@@ -36,11 +36,7 @@ class DeepRepoClient:
         """Initialize the DeepRepoClient.
         
         Args:
-            provider_name: Name of the LLM provider to use. Available options:
-                - "openai" (requires: pip install deeprepo[openai])
-                - "gemini" (requires: pip install deeprepo[gemini])
-                - "ollama" (requires: Ollama installed separately, see https://ollama.ai)
-                - "huggingface" (requires: pip install deeprepo[huggingface])
+            provider_name: Name of the LLM provider to use (e.g., "openai", "gemini").
                 Defaults to LLM_PROVIDER env var, or "openai" if not set.
             storage_path: Path to the vector storage file.
         """

@@ -13,10 +13,6 @@ class EmbeddingProvider(ABC):
     services (OpenAI, Gemini, local models, etc.).
     """
     
-    # Optional class attributes for provider metadata
-    install_hint: str = ""
-    package_requirement: str | None = None
-    
     @abstractmethod
     def embed(self, text: str) -> list[float]:
         """Generate an embedding vector for the given text.
@@ -44,10 +40,6 @@ class LLMProvider(ABC):
     Implement this interface to add support for different LLM
     services (OpenAI, Gemini, Anthropic, etc.).
     """
-    
-    # Optional class attributes for provider metadata
-    install_hint: str = ""
-    package_requirement: str | None = None
     
     @abstractmethod
     def generate(
