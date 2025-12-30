@@ -1,6 +1,6 @@
 [project]
 name = "deeprepo"
-version = "0.1.0"
+version = "0.1.1"
 description = "A production-grade Python library for RAG on local codebases with multi-provider AI support"
 readme = "README.md"
 requires-python = ">=3.10"
