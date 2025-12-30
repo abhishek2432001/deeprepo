@@ -4,7 +4,7 @@ This guide shows you how to use DeepRepo with Cursor, Antigravity, and other AI 
 
 ---
 
-## 📋 Table of Contents
+## Table of Contents
 
 1. [Quick Wins: Instant Use Cases](#quick-wins-instant-use-cases)
 2. [Workflow 1: AI-Powered Code Understanding](#workflow-1-ai-powered-code-understanding)
@@ -708,7 +708,7 @@ python auto_document.py ~/my-project
 
 ---
 
-## 🚀 Next Steps
+## Next Steps
 
 1. **Choose 1-2 workflows** from above that fit your needs
 2. **Create the scripts** in your project
@@ -718,6 +718,6 @@ python auto_document.py ~/my-project
 
 ---
 
-**Your DeepRepo + AI workflow is now supercharged!** 🎉
+**Your DeepRepo + AI workflow is now supercharged!** 
 
 Questions? Build something cool with DeepRepo? Share it!
