@@ -28,7 +28,7 @@ print(response['answer'])
 
 ## Documentation
 
-For full documentation, visit: https://github.com/yourusername/deeprepo
+For full documentation, visit: https://github.com/abhishek2432001/deeprepo
 
 ## License
 
