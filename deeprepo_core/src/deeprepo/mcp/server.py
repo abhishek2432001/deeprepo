@@ -128,11 +128,24 @@ def query_codebase(
     """
     Query the ingested codebase using RAG (Retrieval Augmented Generation).
     
-    This embeds your question, finds the most relevant code chunks,
-    and uses an LLM to generate an answer based on the context.
+    USE THIS TOOL when the user asks questions about the codebase, wants to understand
+    how something works, needs explanations about code functionality, architecture, or patterns.
+    
+    This tool:
+    - Embeds your question to find semantically similar code
+    - Retrieves the most relevant code chunks from the vector store
+    - Uses an LLM to generate a comprehensive answer based on the retrieved context
+    - Returns the answer with source file references
+    
+    Examples of when to use:
+    - "How does authentication work?"
+    - "What is the main architecture?"
+    - "Explain how the MCP server works"
+    - "How are providers registered?"
+    - Any question about code functionality, patterns, or structure
     
     Args:
-        question: Your question about the codebase
+        question: Your question about the codebase (e.g., "How does X work?", "What is Y?", "Explain Z")
         top_k: Number of relevant chunks to retrieve (default: 5)
     
     Returns:
