@@ -96,16 +96,7 @@ class OllamaEmbedding(EmbeddingProvider):
 
 @register_llm("ollama")
 class OllamaLLM(LLMProvider):
-    """Ollama LLM provider.
-    
-    Completely free and runs locally. No API key or pip package required!
-    Requires Ollama to be installed and running.
-    
-    Setup:
-        1. Install Ollama: https://ollama.ai/download
-        2. Start: ollama serve
-        3. Pull a model: ollama pull llama3.2 (or any other model)
-    """
+    """Ollama LLM provider (requires Ollama running locally)."""
     install_hint = (
         "Ollama provider requires Ollama to be installed separately.\n"
         "See: https://ollama.ai/download\n"
@@ -128,11 +119,7 @@ class OllamaLLM(LLMProvider):
         self._check_connection()
         
     def _check_connection(self):
-        """Check if Ollama server is running.
-        
-        Raises:
-            OllamaConnectionError: If Ollama is not accessible with setup instructions
-        """
+        """Verify Ollama server is reachable."""
         try:
             response = requests.get(f"{self.base_url}/api/tags", timeout=5)
             response.raise_for_status()
@@ -144,7 +131,7 @@ class OllamaLLM(LLMProvider):
                 "2. Start the server: ollama serve\n"
                 "3. Pull LLM model: ollama pull llama3.2\n"
                 "4. Pull embedding model: ollama pull nomic-embed-text\n\n"
-                "After setup, Ollama provides UNLIMITED FREE usage!"
+                "After setup, Ollama provides unlimited free usage."
             )
         except requests.exceptions.Timeout:
             raise OllamaConnectionError(

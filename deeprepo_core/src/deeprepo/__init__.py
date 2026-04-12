@@ -1,8 +1,4 @@
-"""DeepRepo - A local RAG engine for codebases.
-
-This package provides a production-grade solution for Retrieval Augmented
-Generation on local code repositories.
-"""
+"""DeepRepo - Local RAG engine for codebases."""
 
 from deeprepo.client import DeepRepoClient, StaleBaseError, BranchMismatchError
 
