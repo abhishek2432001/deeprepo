@@ -30,6 +30,9 @@ from deeprepo import DeepRepoClient
 client = DeepRepoClient(provider_name="ollama")  # FREE!
 client.ingest("./new-project")
 
+# Browse the generated wiki
+print(f"Wiki at: {client.get_wiki_dir()}")
+
 # Ask questions
 response = client.query("What does this project do?")
 print(response['answer'])
@@ -48,6 +51,12 @@ print(response['answer'])
 response = client.query("Show me all API endpoints related to user management")
 print(response['answer'])
 print("\nSources:", [s['metadata']['file'] for s in response['sources']])
+
+# Use smart routing for optimal token usage
+response = client.query("What files would break if I change auth.py?")
+print(f"Intent: {response['intent']}")  # "impact"
+print(f"Strategy: {response['strategy']}")  # blast_radius
+print(f"Retrieval: {response['retrieval']}")  # embeddings, fts, or graph
 ```
 
 ### 3. **Find Examples in Your Codebase**
@@ -339,6 +348,18 @@ if __name__ == "__main__":
     
     documenter = AutoDocumenter(sys.argv[1])
     documenter.generate_readme()
+```
+
+```python
+# Phase 4: Wiki is auto-generated during ingest
+client.ingest("./my-project")
+
+# Browse hierarchical wiki as real .md files
+print(f"Wiki folder: {client.get_wiki_dir()}")
+# Open .deeprepo/main-wiki/overview.md in VS Code for full repo overview
+
+# Export wiki to docs/ for committing to repo
+client.export_wiki("./docs/wiki")
 ```
 
 **Usage:**

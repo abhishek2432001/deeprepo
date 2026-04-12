@@ -146,25 +146,26 @@ def ingest_directory(
     root_path: str | Path,
     chunk_size: int = 1000,
     overlap: int = 100
-) -> list[dict]:
+) -> tuple[list[dict], list[tuple[str, str]]]:
     """Ingest all files in a directory into chunks.
-    
+
     Scans the directory recursively, reads each text file, and splits
     content into overlapping chunks with metadata.
-    
+
     Args:
         root_path: Root directory to ingest.
         chunk_size: Maximum characters per chunk. Defaults to 1000.
         overlap: Number of overlapping characters between chunks. Defaults to 100.
-        
+
     Returns:
-        List of chunk dictionaries containing:
-            - 'text': The chunk text content
-            - 'metadata': Dict with 'filepath', 'chunk_index', 'total_chunks'
+        Tuple of:
+            - List of chunk dicts with 'text' and 'metadata' keys
+            - List of (relative_filepath, content) tuples for graph building
     """
     root = Path(root_path)
     all_chunks = []
-    
+    file_contents: list[tuple[str, str]] = []  # (relative_path, content)
+
     for filepath in scan_directory(root):
         try:
             with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
@@ -172,21 +173,36 @@ def ingest_directory(
         except (IOError, PermissionError) as e:
             print(f"Warning: Could not read {filepath}: {e}")
             continue
-            
+
         if not content.strip():
             continue
-            
+
+        relative_path = str(filepath.relative_to(root))
+        file_contents.append((relative_path, content))
+
         file_chunks = chunk_text(content, chunk_size, overlap)
-        relative_path = filepath.relative_to(root)
-        
+
         for i, chunk_text_content in enumerate(file_chunks):
             all_chunks.append({
                 'text': chunk_text_content,
                 'metadata': {
-                    'filepath': str(relative_path),
+                    'filepath': relative_path,
                     'chunk_index': i,
                     'total_chunks': len(file_chunks),
                 }
             })
-            
-    return all_chunks
+
+    return all_chunks, file_contents
+
+
+def compute_file_hash(content: str) -> str:
+    """Compute SHA-256 hash of file content for change detection.
+
+    Args:
+        content: File content string.
+
+    Returns:
+        Hex-encoded SHA-256 digest.
+    """
+    import hashlib
+    return hashlib.sha256(content.encode("utf-8", errors="ignore")).hexdigest()

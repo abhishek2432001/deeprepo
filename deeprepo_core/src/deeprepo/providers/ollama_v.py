@@ -1,30 +1,4 @@
-"""Ollama provider implementation.
-
-Provides LLM and Embedding implementations using Ollama (100% free, local).
-No API key required!
-
-Installation:
-    Ollama is a separate application that must be installed on your system.
-    
-    1. Install Ollama:
-       - macOS/Linux: https://ollama.ai/download
-       - Or via Homebrew: brew install ollama
-    
-    2. Start Ollama server:
-       ollama serve
-    
-    3. Pull required models:
-       ollama pull nomic-embed-text  # For embeddings
-       ollama pull llama3.2          # For LLM (or any other model)
-    
-    4. Use in Python:
-       from deeprepo import DeepRepoClient
-       client = DeepRepoClient(provider_name="ollama")
-
-Note:
-    This provider is completely FREE with unlimited usage. No pip package needed,
-    but Ollama must be running as a background service.
-"""
+"""Ollama embedding and LLM providers (local, free)."""
 
 import requests
 from typing import Optional
@@ -40,17 +14,7 @@ class OllamaConnectionError(Exception):
 
 @register_embedding("ollama")
 class OllamaEmbedding(EmbeddingProvider):
-    """Ollama embedding provider using nomic-embed-text model.
-    
-    Completely free and runs locally. No API key or pip package required!
-    Requires Ollama to be installed and running.
-    
-    Setup:
-        1. Install Ollama: https://ollama.ai/download
-        2. Start: ollama serve
-        3. Pull model: ollama pull nomic-embed-text
-        4. That's it!
-    """
+    """Ollama embedding provider (requires Ollama running locally)."""
     install_hint = (
         "Ollama provider requires Ollama to be installed separately.\n"
         "See: https://ollama.ai/download\n"
@@ -58,29 +22,22 @@ class OllamaEmbedding(EmbeddingProvider):
     )
     
     def __init__(
-        self, 
-        model: str = "nomic-embed-text",
-        base_url: str = "http://localhost:11434"
+        self,
+        model: str | None = None,
+        base_url: str | None = None,
     ):
-        """Initialize the Ollama embedding provider.
-        
-        Args:
-            model: Ollama embedding model to use. Default: nomic-embed-text
-            base_url: Ollama server URL. Default: http://localhost:11434
-            
+        """Initialize with optional model and base_url overrides.
+
         Raises:
-            OllamaConnectionError: If Ollama is not running or not installed
+            OllamaConnectionError: If Ollama is not running.
         """
-        self.model = model
-        self.base_url = base_url.rstrip('/')
+        import os
+        self.model = model or os.environ.get("OLLAMA_EMBED_MODEL", "nomic-embed-text")
+        self.base_url = (base_url or os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")).rstrip('/')
         self._check_connection()
         
     def _check_connection(self):
-        """Check if Ollama server is running.
-        
-        Raises:
-            OllamaConnectionError: If Ollama is not accessible with setup instructions
-        """
+        """Verify Ollama server is reachable."""
         try:
             response = requests.get(f"{self.base_url}/api/tags", timeout=5)
             response.raise_for_status()
@@ -92,7 +49,7 @@ class OllamaEmbedding(EmbeddingProvider):
                 "2. Start the server: ollama serve\n"
                 "3. Pull embedding model: ollama pull nomic-embed-text\n"
                 "4. Pull LLM model: ollama pull llama3.2\n\n"
-                "After setup, Ollama provides UNLIMITED FREE usage!"
+                "After setup, Ollama provides unlimited free usage."
             )
         except requests.exceptions.Timeout:
             raise OllamaConnectionError(
@@ -106,18 +63,7 @@ class OllamaEmbedding(EmbeddingProvider):
             )
         
     def embed(self, text: str) -> list[float]:
-        """Generate an embedding for a single text.
-        
-        Args:
-            text: The text to embed.
-            
-        Returns:
-            Embedding vector as a list of floats.
-            
-        Raises:
-            OllamaConnectionError: If Ollama is not accessible
-            RuntimeError: If the model is not available
-        """
+        """Generate an embedding vector for text."""
         try:
             response = requests.post(
                 f"{self.base_url}/api/embeddings",
@@ -138,18 +84,10 @@ class OllamaEmbedding(EmbeddingProvider):
             raise
     
     def embed_batch(self, texts: list[str]) -> list[list[float]]:
-        """Generate embeddings for multiple texts.
-        
-        Args:
-            texts: List of texts to embed.
-            
-        Returns:
-            List of embedding vectors.
-        """
+        """Generate embeddings for multiple texts (sequential)."""
         if not texts:
             return []
         
-        # Ollama doesn't have native batch support, so we call individually
         embeddings = []
         for text in texts:
             embeddings.append(self.embed(text))
@@ -175,22 +113,18 @@ class OllamaLLM(LLMProvider):
     )
     
     def __init__(
-        self, 
-        model: str = "llama3.2",
-        base_url: str = "http://localhost:11434"
+        self,
+        model: str | None = None,
+        base_url: str | None = None,
     ):
-        """Initialize the Ollama LLM provider.
-        
-        Args:
-            model: Ollama model to use. Default: llama3.2
-                   Other good options: mistral, phi3, gemma2, qwen2.5
-            base_url: Ollama server URL. Default: http://localhost:11434
-            
+        """Initialize with optional model and base_url overrides.
+
         Raises:
-            OllamaConnectionError: If Ollama is not running or not installed
+            OllamaConnectionError: If Ollama is not running.
         """
-        self.model = model
-        self.base_url = base_url.rstrip('/')
+        import os
+        self.model = model or os.environ.get("OLLAMA_MODEL", "llama3.2")
+        self.base_url = (base_url or os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")).rstrip('/')
         self._check_connection()
         
     def _check_connection(self):
@@ -229,21 +163,7 @@ class OllamaLLM(LLMProvider):
         context: Optional[str] = None,
         system_prompt: Optional[str] = None
     ) -> str:
-        """Generate a response using Ollama.
-        
-        Args:
-            prompt: The user's question.
-            context: Optional context from retrieved documents.
-            system_prompt: Optional system prompt.
-            
-        Returns:
-            The model's response text.
-            
-        Raises:
-            OllamaConnectionError: If Ollama is not accessible
-            RuntimeError: If the model is not available
-        """
-        # Build the full prompt
+        """Generate a response using Ollama."""
         parts = []
         
         if system_prompt:

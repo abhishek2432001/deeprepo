@@ -59,9 +59,19 @@ ollama = [
     # requests is already in core dependencies
     # Note: Ollama itself must be installed separately
 ]
+graph = [
+    "tree-sitter>=0.21.0",
+    "tree-sitter-python>=0.21.0",
+    "tree-sitter-javascript>=0.21.0",
+    "tree-sitter-typescript>=0.21.0",
+]
 all-providers = [
     # Includes all optional providers (huggingface, ollama)
     # Default providers (openai, gemini, anthropic) are already included
+    "tree-sitter>=0.21.0",
+    "tree-sitter-python>=0.21.0",
+    "tree-sitter-javascript>=0.21.0",
+    "tree-sitter-typescript>=0.21.0",
 ]
 mcp = [
     "mcp>=1.2.0",
