@@ -237,10 +237,12 @@ def cmd_ingest(args: argparse.Namespace) -> int:
                 max_workers=getattr(args, "workers", 3),
             )
             print()
+            failed = wiki_stats.get("failed", 0)
             ok(
                 f"Wiki complete in {time.time() - wiki_start:.1f}s — "
                 f"{wiki_stats.get('generated', 0)} pages generated, "
                 f"{wiki_stats.get('skipped', 0)} skipped"
+                + (f", {failed} failed" if failed else "")
             )
             dim(f"Wiki saved to: {client.wiki_engine.get_wiki_dir()}")
         except Exception as e:

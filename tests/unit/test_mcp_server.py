@@ -1,216 +1,205 @@
-"""Tests for the DeepRepo MCP server."""
+"""Tests for the DeepRepo MCP server (7-tool interface)."""
 
+import json
 import pytest
 from unittest.mock import MagicMock, patch
 
 
 class TestMCPServerImport:
     """Test that the MCP server module imports correctly."""
-    
+
     def test_mcp_module_import(self):
-        """Test that the MCP module can be imported."""
         from deeprepo.mcp import mcp, main
-        
         assert mcp is not None
         assert main is not None
-    
+
     def test_mcp_server_import(self):
-        """Test that the MCP server module can be imported."""
         from deeprepo.mcp.server import (
             mcp,
             main,
             get_client,
             ingest_codebase,
-            query_codebase,
-            search_similar,
-            get_stats,
-            clear_history,
+            find_symbol,
+            get_file_structure,
+            explain_file,
+            find_change_impact,
+            ask_codebase,
+            get_project_overview,
         )
-        
         assert mcp is not None
         assert callable(main)
         assert callable(get_client)
         assert callable(ingest_codebase)
-        assert callable(query_codebase)
-        assert callable(search_similar)
-        assert callable(get_stats)
-        assert callable(clear_history)
+        assert callable(find_symbol)
+        assert callable(get_file_structure)
+        assert callable(explain_file)
+        assert callable(find_change_impact)
+        assert callable(ask_codebase)
+        assert callable(get_project_overview)
 
 
 class TestMCPTools:
     """Test MCP tool functions."""
-    
-    @patch('deeprepo.mcp.server.get_client')
-    def test_get_stats_tool(self, mock_get_client):
-        """Test the get_stats tool."""
-        from deeprepo.mcp.server import get_stats
-        
-        # Mock the client
-        mock_client = MagicMock()
-        mock_client.get_stats.return_value = {
-            'total_chunks': 100,
-            'total_files': 10,
-            'files': ['file1.py', 'file2.py'],
-            'storage_path': 'vectors.json',
-            'provider': 'ollama'
-        }
-        mock_get_client.return_value = mock_client
-        
-        # Call the tool
-        result = get_stats()
-        
-        # Verify
-        assert 'DeepRepo Statistics:' in result
-        assert 'Total chunks: 100' in result
-        assert 'Total files: 10' in result
-        assert 'ollama' in result
-    
-    @patch('deeprepo.mcp.server.get_client')
-    def test_clear_history_tool(self, mock_get_client):
-        """Test the clear_history tool."""
-        from deeprepo.mcp.server import clear_history
-        
-        # Mock the client
-        mock_client = MagicMock()
-        mock_get_client.return_value = mock_client
-        
-        # Call the tool
-        result = clear_history()
-        
-        # Verify
-        assert 'cleared' in result.lower()
-        mock_client.clear_history.assert_called_once()
-    
+
     @patch('deeprepo.mcp.server.get_client')
     def test_ingest_codebase_success(self, mock_get_client):
-        """Test successful codebase ingestion."""
         from deeprepo.mcp.server import ingest_codebase
-        
-        # Mock the client
+
         mock_client = MagicMock()
         mock_client.ingest.return_value = {
-            'chunks_processed': 50,
-            'files_scanned': 5,
-            'message': 'Success'
+            'chunks_processed': 340,
+            'files_scanned': 21,
+            'graph_nodes': 252,
+            'wiki_generated': 6,
+            'branch': 'main',
+            'message': 'Successfully ingested 21 files',
         }
-        mock_client.storage_path = 'vectors.json'
         mock_get_client.return_value = mock_client
-        
-        # Call the tool
+
         result = ingest_codebase('/test/path', chunk_size=1000, overlap=100)
-        
-        # Verify
-        assert 'Ingestion Completed' in result
+
         assert '/test/path' in result
-        assert '50' in result
-        assert '5' in result
-    
+        assert '21' in result
+        assert '340' in result
+
     @patch('deeprepo.mcp.server.get_client')
     def test_ingest_codebase_failure(self, mock_get_client):
-        """Test failed codebase ingestion."""
         from deeprepo.mcp.server import ingest_codebase
-        
-        # Mock the client to raise an exception
+
         mock_client = MagicMock()
         mock_client.ingest.side_effect = Exception("Test error")
         mock_get_client.return_value = mock_client
-        
-        # Call the tool
+
         result = ingest_codebase('/test/path')
-        
-        # Verify
         assert 'failed' in result.lower()
-    
+
     @patch('deeprepo.mcp.server.get_client')
-    def test_query_codebase_success(self, mock_get_client):
-        """Test successful codebase query."""
-        from deeprepo.mcp.server import query_codebase
-        
-        # Mock the client
+    def test_find_symbol(self, mock_get_client):
+        from deeprepo.mcp.server import find_symbol
+
         mock_client = MagicMock()
-        mock_client.query.return_value = {
-            'answer': 'This is the answer',
-            'sources': ['file1.py', 'file2.py']
+        mock_client.graph_store.get_symbol.return_value = {
+            'name': 'DeepRepoClient',
+            'type': 'class',
+            'filepath': 'client.py',
+            'line_start': 72,
+            'signature': 'class DeepRepoClient:',
+            'docstring': 'Main client facade.',
         }
         mock_get_client.return_value = mock_client
-        
-        # Call the tool
-        result = query_codebase('How does X work?', top_k=3)
-        
-        # Verify
-        assert 'Answer:' in result
-        assert 'This is the answer' in result
-        assert 'file1.py' in result
+
+        result = find_symbol('DeepRepoClient')
+        assert 'DeepRepoClient' in result
+        assert 'client.py' in result
+        assert '72' in result
+
+    @patch('deeprepo.mcp.server.get_client')
+    def test_find_symbol_not_found(self, mock_get_client):
+        from deeprepo.mcp.server import find_symbol
+
+        mock_client = MagicMock()
+        mock_client.graph_store.get_symbol.return_value = None
+        mock_get_client.return_value = mock_client
+
+        result = find_symbol('NonExistent')
+        assert 'not found' in result.lower()
+
+    @patch('deeprepo.mcp.server.get_client')
+    def test_get_file_structure(self, mock_get_client):
+        from deeprepo.mcp.server import get_file_structure
+
+        mock_client = MagicMock()
+        mock_client.graph_store.get_file_skeleton.return_value = (
+            "[class] class Foo: (line 10)\n[function] def bar(): (line 20)"
+        )
+        mock_get_client.return_value = mock_client
+
+        result = get_file_structure('client.py')
+        assert 'client.py' in result
+        assert 'Foo' in result
+
+    @patch('deeprepo.mcp.server.get_client')
+    def test_explain_file(self, mock_get_client):
+        from deeprepo.mcp.server import explain_file
+
+        mock_client = MagicMock()
+        mock_client.wiki_engine.get_page.return_value = "# client.py\n\nThis module does X."
+        mock_get_client.return_value = mock_client
+
+        result = explain_file('client.py')
+        assert 'client.py' in result
+
+    @patch('deeprepo.mcp.server.get_client')
+    def test_find_change_impact(self, mock_get_client):
+        from deeprepo.mcp.server import find_change_impact
+
+        mock_client = MagicMock()
+        mock_client.graph_store.get_blast_radius.return_value = [
+            'api/views.py', 'tests/test_auth.py'
+        ]
+        mock_get_client.return_value = mock_client
+
+        result = find_change_impact('auth/service.py', depth=2)
+        assert 'auth/service.py' in result
+        assert 'api/views.py' in result
+
+    @patch('deeprepo.mcp.server.get_client')
+    def test_ask_codebase(self, mock_get_client):
+        from deeprepo.mcp.server import ask_codebase
+
+        mock_client = MagicMock()
+        mock_client.query.return_value = {
+            'answer': 'The router classifies intent.',
+            'sources': ['router.py'],
+            'intent': 'explain',
+            'strategy': 'wiki_plus_skeleton',
+        }
+        mock_get_client.return_value = mock_client
+
+        result = ask_codebase('How does the router work?')
+        assert 'router' in result.lower()
+        assert 'explain' in result
+
+    @patch('deeprepo.mcp.server.get_client')
+    def test_get_project_overview(self, mock_get_client):
+        from deeprepo.mcp.server import get_project_overview
+
+        mock_client = MagicMock()
+        mock_client.wiki_engine.get_repo_overview.return_value = (
+            "# Project Overview\n\nThis project does RAG on codebases."
+        )
+        mock_get_client.return_value = mock_client
+
+        result = get_project_overview()
+        assert 'Overview' in result
 
 
 class TestMCPResources:
     """Test MCP resource functions."""
-    
-    @patch('deeprepo.mcp.server.get_client')
-    def test_stats_resource(self, mock_get_client):
-        """Test the stats resource."""
-        from deeprepo.mcp.server import get_stats_resource
-        import json
-        
-        # Mock the client
-        mock_client = MagicMock()
-        mock_client.get_stats.return_value = {
-            'total_chunks': 100,
-            'total_files': 10
-        }
-        mock_get_client.return_value = mock_client
-        
-        # Call the resource
-        result = get_stats_resource()
-        
-        # Verify it's valid JSON
-        data = json.loads(result)
-        assert data['total_chunks'] == 100
-        assert data['total_files'] == 10
-    
+
     def test_config_resource(self):
-        """Test the config resource."""
         from deeprepo.mcp.server import get_config_resource
-        import json
-        
-        # Call the resource
+
         result = get_config_resource()
-        
-        # Verify it's valid JSON
         data = json.loads(result)
         assert 'llm_provider' in data
-        assert 'storage_path' in data
+        assert 'embedding_provider' in data
         assert 'supported_providers' in data
 
 
 class TestMCPPrompts:
     """Test MCP prompt templates."""
-    
-    def test_analyze_codebase_prompt(self):
-        """Test the analyze_codebase prompt template."""
-        from deeprepo.mcp.server import analyze_codebase
-        
-        result = analyze_codebase('/test/directory')
-        
+
+    def test_start_coding_session_prompt(self):
+        from deeprepo.mcp.server import start_coding_session
+
+        result = start_coding_session('/test/directory')
         assert '/test/directory' in result
-        assert 'ingest' in result.lower()
-        assert 'architecture' in result.lower()
-    
-    def test_explain_function_prompt(self):
-        """Test the explain_function prompt template."""
-        from deeprepo.mcp.server import explain_function
-        
-        result = explain_function('my_function')
-        
-        assert 'my_function' in result
-        assert 'search' in result.lower()
-        assert 'explain' in result.lower()
-    
-    def test_find_bugs_prompt(self):
-        """Test the find_bugs prompt template."""
-        from deeprepo.mcp.server import find_bugs
-        
-        result = find_bugs()
-        
-        assert 'bug' in result.lower()
-        assert 'security' in result.lower()
+        assert 'get_project_overview' in result
+
+    def test_plan_code_change_prompt(self):
+        from deeprepo.mcp.server import plan_code_change
+
+        result = plan_code_change('auth/service.py')
+        assert 'auth/service.py' in result
+        assert 'find_change_impact' in result

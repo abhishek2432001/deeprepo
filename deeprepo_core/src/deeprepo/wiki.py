@@ -633,27 +633,50 @@ def _compress_file(filepath: str, content: str) -> str:
 
 # ── Module tree helpers ───────────────────────────────────────────────────────
 
-def _format_module_tree(module_tree: dict[str, dict], highlight: str = "") -> str:
+def _format_module_tree(
+    module_tree: dict[str, dict],
+    highlight: str = "",
+    max_lines: int = 80,
+) -> str:
+    """Format module tree as text. Caps at max_lines to avoid blowing LLM context."""
     lines: list[str] = []
+
+    def _count_modules(tree: dict) -> int:
+        count = len(tree)
+        for info in tree.values():
+            count += _count_modules(info.get("children", {}))
+        return count
+
+    total_modules = _count_modules(module_tree)
+    # For large trees, emit structure only (no per-file component lists)
+    structure_only = total_modules > 30
 
     def _walk(tree: dict[str, dict], indent: int = 0) -> None:
         for key, value in tree.items():
+            if len(lines) >= max_lines:
+                if len(lines) == max_lines:
+                    lines.append("  ... (truncated)")
+                return
             label = f"{key} (current module)" if key == highlight else key
             lines.append(f"{'  ' * indent}{label}")
-            by_file: dict[str, list[str]] = defaultdict(list)
-            for c in value.get("components", []):
-                if "::" in c:
-                    fpath, name = c.split("::", 1)
-                    by_file[fpath].append(name)
-                else:
-                    by_file[""].append(c)
-            for fpath, names in by_file.items():
-                prefix = f"{fpath}: " if fpath else ""
-                lines.append(f"{'  ' * (indent + 1)}{prefix}{', '.join(names)}")
+            if not structure_only:
+                by_file: dict[str, list[str]] = defaultdict(list)
+                for c in value.get("components", []):
+                    if "::" in c:
+                        fpath, name = c.split("::", 1)
+                        by_file[fpath].append(name)
+                    else:
+                        by_file[""].append(c)
+                for fpath, names in by_file.items():
+                    if len(lines) >= max_lines:
+                        break
+                    prefix = f"{fpath}: " if fpath else ""
+                    lines.append(f"{'  ' * (indent + 1)}{prefix}{', '.join(names)}")
             children = value.get("children", {})
             if isinstance(children, dict) and children:
-                lines.append(f"{'  ' * (indent + 1)}Children:")
-                _walk(children, indent + 2)
+                if not structure_only:
+                    lines.append(f"{'  ' * (indent + 1)}Children:")
+                _walk(children, indent + 2 if not structure_only else indent + 1)
 
     _walk(module_tree)
     return "\n".join(lines)
@@ -1031,6 +1054,14 @@ class WikiEngine:
         if cached is not None:
             logger.debug("Using cached LLM clusters (hash %s…)", file_list_hash[:8])
             return cached
+
+        # For large repos, skip LLM clustering — directory fallback is better
+        if len(file_contents) > 300:
+            logger.info(
+                "Repo has %d files — skipping LLM clustering, using directory structure",
+                len(file_contents),
+            )
+            return None
 
         components_text = "\n".join(
             f"- {fp} ({len(content)} chars)" for fp, content in file_contents

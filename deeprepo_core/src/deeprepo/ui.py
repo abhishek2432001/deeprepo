@@ -586,7 +586,7 @@ function sanitizeMermaid(raw) {
         const isProse = (
             /^(REPLACE|Note[:\s]|NOTE[:\s]|Fill\s|This |The |Use |Do |See |Example|>>|TODO)/i.test(trimmed) ||
             (/[.?!]$/.test(trimmed) && trimmed.split(' ').length > 4) ||
-            (trimmed.split(' ').length > 8 && !/[\[\]({-->]/.test(trimmed))
+            (trimmed.split(' ').length > 8 && !/[\[\]({>-]/.test(trimmed))
         );
         if (isProse) return null;
 
