@@ -1008,6 +1008,11 @@ class WikiEngine:
             )
             content_md = _clean_response(raw)
             safe_name = re.sub(r"[^a-zA-Z0-9_]", "_", module_name)
+            # Filesystem limit is 255 bytes; cap well below to leave room for path
+            if len(safe_name) > 180:
+                import hashlib as _hl
+                suffix = _hl.sha256(module_name.encode()).hexdigest()[:8]
+                safe_name = safe_name[:170] + "_" + suffix
             md_path = os.path.join(self.wiki_dir, f"{safe_name}.md")
 
             self._dual_write(
@@ -1266,7 +1271,7 @@ class WikiEngine:
         if graph_store is not None:
             self.graph_store = graph_store
 
-        stats = {"generated": 0, "skipped": 0, "failed": 0}
+        stats: dict[str, Any] = {"generated": 0, "skipped": 0, "failed": 0, "last_error": ""}
 
         if self.llm_provider is None:
             logger.info("No LLM provider configured — skipping wiki generation")
@@ -1297,7 +1302,12 @@ class WikiEngine:
             if len(pending_merge) == 1:
                 leaf_modules.append((pending_merge[0][0], pending_merge[0][1]))
             else:
-                combined_name = "+".join(n for n, _, _ in pending_merge)
+                # Use a short hash-based name to avoid filesystem 255-char limit
+                names_str = "+".join(n for n, _, _ in pending_merge)
+                import hashlib as _hl
+                short_hash = _hl.sha256(names_str.encode()).hexdigest()[:8]
+                first_name = re.sub(r"[^a-zA-Z0-9_]", "_", pending_merge[0][0])[:40]
+                combined_name = f"{first_name}_merged_{short_hash}"
                 combined_files: list[tuple[str, str]] = []
                 for _, files, _ in pending_merge:
                     combined_files.extend(files)
@@ -1380,15 +1390,18 @@ class WikiEngine:
             regenerated_modules: set[str] = set()
             completed = 0
 
-            def _gen_leaf(args: tuple) -> tuple[str, bool]:
+            def _gen_leaf(args: tuple) -> tuple[str, bool, str]:
                 mod_name, mod_files = args
-                result = self.generate_leaf_page(
-                    module_name=mod_name,
-                    files=mod_files,
-                    module_tree=module_tree,
-                    fallback_provider=fallback_provider,
-                )
-                return mod_name, result is not None
+                try:
+                    result = self.generate_leaf_page(
+                        module_name=mod_name,
+                        files=mod_files,
+                        module_tree=module_tree,
+                        fallback_provider=fallback_provider,
+                    )
+                    return mod_name, result is not None, ""
+                except Exception as exc:
+                    return mod_name, False, str(exc)
 
             with ThreadPoolExecutor(max_workers=effective_workers) as executor:
                 futures = {
@@ -1399,7 +1412,7 @@ class WikiEngine:
                     mod_name = futures[future]
                     completed += 1
                     try:
-                        _, success = future.result()
+                        _, success, err_msg = future.result()
                         if success:
                             stats["generated"] += 1
                             regenerated_modules.add(mod_name)
@@ -1408,11 +1421,15 @@ class WikiEngine:
                             )
                         else:
                             stats["failed"] += 1
+                            if err_msg:
+                                stats["last_error"] = err_msg
                             logger.warning(
-                                "[%d/%d] Failed: %s", completed, total, mod_name
+                                "[%d/%d] Failed: %s — %s", completed, total, mod_name,
+                                err_msg or "generate_leaf_page returned None",
                             )
                     except Exception as exc:
                         stats["failed"] += 1
+                        stats["last_error"] = str(exc)
                         logger.warning("Wiki exception for %s: %s", mod_name, exc)
                     finally:
                         if progress_callback is not None:

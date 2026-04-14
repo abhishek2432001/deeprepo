@@ -244,6 +244,8 @@ def cmd_ingest(args: argparse.Namespace) -> int:
                 f"{wiki_stats.get('skipped', 0)} skipped"
                 + (f", {failed} failed" if failed else "")
             )
+            if failed and wiki_stats.get("last_error"):
+                warn(f"Last failure reason: {wiki_stats['last_error']}")
             dim(f"Wiki saved to: {client.wiki_engine.get_wiki_dir()}")
         except Exception as e:
             warn(f"Wiki generation failed (continuing): {e}")
