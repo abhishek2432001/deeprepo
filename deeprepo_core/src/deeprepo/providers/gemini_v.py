@@ -5,7 +5,8 @@ Provides LLM and Embedding implementations using Google's Gemini API.
 
 import os
 
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 
 from deeprepo.interfaces import EmbeddingProvider, LLMProvider
 from deeprepo.registry import register_embedding, register_llm
@@ -13,82 +14,59 @@ from deeprepo.registry import register_embedding, register_llm
 
 @register_embedding("gemini")
 class GeminiEmbedding(EmbeddingProvider):
-    """Gemini embedding provider using embedding-001 model.
+    """Gemini embedding provider using text-embedding-004 model.
     
     Requires GEMINI_API_KEY environment variable to be set.
     """
     install_hint = "pip install deeprepo[gemini]"
-    package_requirement = "google-generativeai"
+    package_requirement = "google-genai"
     
-    def __init__(self, model: str = "models/embedding-001"):
-        """Initialize the Gemini embedding provider.
-        
-        Args:
-            model: Gemini embedding model to use.
-        """
+    def __init__(self, model: str = "text-embedding-004"):
+        """Initialize the Gemini embedding provider."""
         api_key = os.environ.get("GEMINI_API_KEY")
         if not api_key:
             raise ValueError("GEMINI_API_KEY environment variable is required")
-        genai.configure(api_key=api_key)
+        self.client = genai.Client(api_key=api_key)
         self.model = model
         
     def embed(self, text: str) -> list[float]:
-        """Generate an embedding for a single text.
-        
-        Args:
-            text: The text to embed.
-            
-        Returns:
-            Embedding vector as a list of floats.
-        """
-        result = genai.embed_content(
+        """Generate an embedding for a single text."""
+        result = self.client.models.embed_content(
             model=self.model,
-            content=text,
-            task_type="retrieval_document"
+            contents=text,
+            config=types.EmbedContentConfig(task_type="RETRIEVAL_DOCUMENT")
         )
-        return result['embedding']
+        return result.embeddings[0].values
     
     def embed_batch(self, texts: list[str]) -> list[list[float]]:
-        """Generate embeddings for multiple texts.
-        
-        Args:
-            texts: List of texts to embed.
-            
-        Returns:
-            List of embedding vectors.
-        """
+        """Generate embeddings for multiple texts."""
         if not texts:
             return []
             
-        # Gemini API handles batch embedding
-        result = genai.embed_content(
+        result = self.client.models.embed_content(
             model=self.model,
-            content=texts,
-            task_type="retrieval_document"
+            contents=texts,
+            config=types.EmbedContentConfig(task_type="RETRIEVAL_DOCUMENT")
         )
-        return result['embedding']
+        return [emb.values for emb in result.embeddings]
 
 
 @register_llm("gemini")
 class GeminiLLM(LLMProvider):
-    """Gemini LLM provider using gemini-1.5-flash.
+    """Gemini LLM provider using gemini-2.5-flash.
     
     Requires GEMINI_API_KEY environment variable to be set.
     """
     install_hint = "pip install deeprepo[gemini]"
-    package_requirement = "google-generativeai"
+    package_requirement = "google-genai"
     
-    def __init__(self, model: str = "gemini-1.5-flash"):
-        """Initialize the Gemini LLM provider.
-        
-        Args:
-            model: Gemini model to use. Defaults to gemini-1.5-flash.
-        """
+    def __init__(self, model: str = "gemini-2.5-flash"):
+        """Initialize the Gemini LLM provider."""
         api_key = os.environ.get("GEMINI_API_KEY")
         if not api_key:
             raise ValueError("GEMINI_API_KEY environment variable is required")
-        genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel(model)
+        self.client = genai.Client(api_key=api_key)
+        self.model = model
         
     def generate(
         self, 
@@ -96,17 +74,7 @@ class GeminiLLM(LLMProvider):
         context: str | None = None,
         system_prompt: str | None = None
     ) -> str:
-        """Generate a response using Gemini.
-        
-        Args:
-            prompt: The user's question.
-            context: Optional context from retrieved documents.
-            system_prompt: Optional system prompt.
-            
-        Returns:
-            The model's response text.
-        """
-        # Build the full prompt
+        """Generate a response using Gemini."""
         parts = []
         
         if system_prompt:
@@ -124,6 +92,9 @@ class GeminiLLM(LLMProvider):
         
         full_prompt = "\n".join(parts)
         
-        response = self.model.generate_content(full_prompt)
+        response = self.client.models.generate_content(
+            model=self.model,
+            contents=full_prompt,
+        )
         
         return response.text

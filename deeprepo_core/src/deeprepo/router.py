@@ -54,7 +54,6 @@ INTENT_PATTERNS: list[tuple[Intent, list[str]]] = [
         r"\bhow\s+does\b",
         r"\bwhat\s+is\b",
         r"\bexplain\b",
-        r"\bwhat\s+does\b",
         r"\bdescribe\b",
         r"\bunderstand\b",
         r"\bwalk\s+me\s+through\b",
@@ -220,12 +219,9 @@ class QueryRouter:
             files_used.append(fp)
 
             if wiki_engine:
-                page = wiki_engine.get_page(fp)
+                page = wiki_engine.get_page(fp, concise=True)
                 if page:
-                    parts.append(f"## {fp}\n{page['summary']}")
-                    api = page.get("public_api", [])
-                    if api:
-                        parts.append("Public API:\n" + "\n".join(f"  {s}" for s in api[:5]))
+                    parts.append(f"## {fp}\n{page}")
 
             if graph_store:
                 skeleton = graph_store.get_file_skeleton(fp)

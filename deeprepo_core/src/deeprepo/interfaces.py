@@ -4,6 +4,7 @@ Defines the Strategy Pattern base classes that allow swapping providers.
 """
 
 from abc import ABC, abstractmethod
+from typing import Coroutine
 
 
 class EmbeddingProvider(ABC):
@@ -51,8 +52,8 @@ class LLMProvider(ABC):
     
     @abstractmethod
     def generate(
-        self, 
-        prompt: str, 
+        self,
+        prompt: str,
         context: str | None = None,
         system_prompt: str | None = None
     ) -> str:
@@ -65,3 +66,22 @@ class LLMProvider(ABC):
             The LLM's response as a string.
         """
         pass
+
+    async def agenerate(
+        self,
+        prompt: str,
+        context: str | None = None,
+        system_prompt: str | None = None,
+    ) -> str:
+        """Async wrapper around generate().
+
+        The default implementation runs generate() in a thread-pool executor
+        so all providers automatically support async callers without changes.
+        Override in subclasses for native async support.
+        """
+        import asyncio
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(
+            None,
+            lambda: self.generate(prompt, context, system_prompt),
+        )

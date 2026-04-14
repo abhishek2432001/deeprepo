@@ -77,12 +77,15 @@ class DeepRepoClient:
         provider_name: str | None = None,
         embedding_provider_name: str | None = None,
         llm_provider_name: str | None = None,
+        cluster_provider_name: str | None = None,
+        fallback_provider_name: str | None = None,
         branch_isolation: bool = True,
         base_branches: list[str] | None = None,
         cluster_strategy: Literal["directory", "llm"] = "directory",
         auto_refresh_base_on_pull: bool = True,
         hierarchical_wiki: bool = True,
         wiki_dir: str = ".deeprepo/wiki",
+        wiki_max_workers: int | None = None,
     ):
         if embedding_provider_name:
             self.embedding_provider_name = embedding_provider_name
@@ -108,9 +111,19 @@ class DeepRepoClient:
         self.auto_refresh_base_on_pull = auto_refresh_base_on_pull
         self.hierarchical_wiki = hierarchical_wiki
         self._wiki_dir_base = wiki_dir
+        self._wiki_max_workers = wiki_max_workers
 
         self.embedding_provider: EmbeddingProvider = get_embedding(self.embedding_provider_name)
         self.llm_provider: LLMProvider = get_llm(self.llm_provider_name)
+
+        # Optional cheap model for clustering (e.g. gemini-flash, gpt-4o-mini)
+        self.cluster_provider: LLMProvider | None = (
+            get_llm(cluster_provider_name) if cluster_provider_name else None
+        )
+        # Optional fallback provider used when the primary fails all retries
+        self.fallback_provider: LLMProvider | None = (
+            get_llm(fallback_provider_name) if fallback_provider_name else None
+        )
 
         self._repo_root = self._find_repo_root()
         self.current_branch: str | None = None
@@ -123,6 +136,7 @@ class DeepRepoClient:
             wiki_dir=paths["wiki_dir"],
             llm_provider=self.llm_provider,
             graph_store=self.graph_store,
+            cluster_provider=self.cluster_provider,
         )
 
         self.router = QueryRouter()
@@ -239,6 +253,7 @@ class DeepRepoClient:
             wiki_dir=paths["wiki_dir"],
             llm_provider=self.llm_provider,
             graph_store=self.graph_store,
+            cluster_provider=self.cluster_provider,
         )
 
         return {
@@ -387,6 +402,7 @@ class DeepRepoClient:
         chunk_size: int = 1000,
         overlap: int = 100,
         batch_size: int = 100,
+        generate_wiki: bool = True,
     ) -> dict[str, Any]:
         """Ingest a directory into the knowledge base."""
         self._check_branch_mismatch()
@@ -440,23 +456,26 @@ class DeepRepoClient:
             logger.warning("Graph building failed (non-fatal): %s", exc)
 
         wiki_stats = {"generated": 0, "skipped": 0, "failed": 0}
-        try:
-            wiki_contents = (
-                [(fp, content_map[fp]) for fp in changed_files if fp in content_map]
-                if changed_files and len(changed_files) < len(file_contents)
-                else file_contents
-            )
-            wiki_stats = self.wiki_engine.bulk_generate(
-                file_contents=wiki_contents,
-                graph_store=self.graph_store,
-                max_workers=3,
-            )
-            logger.info("Wiki: %d generated, %d skipped", wiki_stats['generated'], wiki_stats['skipped'])
-        except Exception as exc:
-            logger.warning("Wiki generation failed (non-fatal): %s", exc)
+        if generate_wiki:
+            try:
+                wiki_contents = (
+                    [(fp, content_map[fp]) for fp in changed_files if fp in content_map]
+                    if changed_files and len(changed_files) < len(file_contents)
+                    else file_contents
+                )
+                wiki_stats = self.wiki_engine.bulk_generate(
+                    file_contents=wiki_contents,
+                    graph_store=self.graph_store,
+                    max_workers=self._wiki_max_workers,
+                    fallback_provider=self.fallback_provider,
+                )
+                logger.info("Wiki: %d generated, %d skipped", wiki_stats['generated'], wiki_stats['skipped'])
+            except Exception as exc:
+                logger.warning("Wiki generation failed (non-fatal): %s", exc)
 
         embed_count = 0
         try:
+            provider_key = f"{self.embedding_provider_name}:{getattr(self.embedding_provider, 'model', 'default')}"
             for filepath, _ in file_contents:
                 summary = self.wiki_engine.get_summary(filepath)
                 if summary:
@@ -465,10 +484,12 @@ class DeepRepoClient:
                     self.graph_store.upsert_embedding(
                         filepath=filepath,
                         vector=vec,
-                        source="wiki_page",
+                        source=provider_key,
                         sha256=sha,
                     )
                     embed_count += 1
+            if embed_count > 0:
+                self.graph_store.set_embedding_provider(provider_key)
             logger.info("Embeddings: %d file-level embeddings stored", embed_count)
         except Exception as exc:
             logger.warning("Embedding generation failed (non-fatal): %s", exc)
@@ -497,6 +518,16 @@ class DeepRepoClient:
     ) -> tuple[list[dict[str, Any]], str]:
         """Find relevant files using a 3-tier fallback: embeddings → FTS → graph."""
         try:
+            provider_key = f"{self.embedding_provider_name}:{getattr(self.embedding_provider, 'model', 'default')}"
+            if not self.graph_store.check_embedding_provider(provider_key):
+                stored = self.graph_store.get_state("embedding_provider")
+                logger.warning(
+                    "Embedding provider mismatch: DB contains vectors from '%s' "
+                    "but current provider is '%s'. "
+                    "Semantic search skipped — run ingest() to rebuild embeddings.",
+                    stored, provider_key,
+                )
+                raise ValueError("embedding_provider_mismatch")
             query_embedding = self.embedding_provider.embed(question)
             results = self.graph_store.search_embeddings(query_embedding, top_k=top_k)
             if results:

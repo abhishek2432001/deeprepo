@@ -4,6 +4,7 @@ import hashlib
 import logging
 import sqlite3
 import struct
+import threading
 import time
 from typing import Any
 
@@ -17,16 +18,18 @@ class GraphStore:
 
     def __init__(self, db_path: str = "codegraph.db") -> None:
         self.db_path = db_path
-        self._conn: sqlite3.Connection | None = None
+        self._local = threading.local()
+        self._lock = threading.Lock()
         self._init_schema()
 
     def _get_conn(self) -> sqlite3.Connection:
-        if self._conn is None:
-            self._conn = sqlite3.connect(self.db_path, check_same_thread=False)
-            self._conn.row_factory = sqlite3.Row
-            self._conn.execute("PRAGMA journal_mode=WAL")
-            self._conn.execute("PRAGMA foreign_keys=ON")
-        return self._conn
+        if not hasattr(self._local, 'conn'):
+            conn = sqlite3.connect(self.db_path, check_same_thread=False, timeout=15.0)
+            conn.row_factory = sqlite3.Row
+            conn.execute("PRAGMA journal_mode=WAL")
+            conn.execute("PRAGMA foreign_keys=ON")
+            self._local.conn = conn
+        return self._local.conn
 
     def _init_schema(self) -> None:
         conn = self._get_conn()
@@ -107,64 +110,67 @@ class GraphStore:
         edges: list[dict[str, Any]],
     ) -> None:
         """Replace all nodes and edges for a file."""
-        conn = self._get_conn()
-        conn.execute("DELETE FROM nodes WHERE filepath = ?", (filepath,))
-        conn.commit()
+        with self._lock:
+            conn = self._get_conn()
+            conn.execute("DELETE FROM nodes WHERE filepath = ?", (filepath,))
+            conn.commit()
 
-        if not nodes:
-            return
+            if not nodes:
+                return
 
-        name_to_id: dict[str, int] = {}
-        for node in nodes:
-            cur = conn.execute(
-                """INSERT INTO nodes (name, type, filepath, line_start, line_end, signature, docstring)
-                   VALUES (?, ?, ?, ?, ?, ?, ?)""",
-                (
-                    node.get("name", ""),
-                    node.get("type", "unknown"),
-                    filepath,
-                    node.get("line_start"),
-                    node.get("line_end"),
-                    node.get("signature"),
-                    node.get("docstring"),
-                ),
-            )
-            name_to_id[node.get("name", "")] = cur.lastrowid  # type: ignore[assignment]
+            name_to_id: dict[str, int] = {}
+            for node in nodes:
+                cur = conn.execute(
+                    """INSERT INTO nodes (name, type, filepath, line_start, line_end, signature, docstring)
+                       VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                    (
+                        node.get("name", ""),
+                        node.get("type", "unknown"),
+                        filepath,
+                        node.get("line_start"),
+                        node.get("line_end"),
+                        node.get("signature"),
+                        node.get("docstring"),
+                    ),
+                )
+                name_to_id[node.get("name", "")] = cur.lastrowid  # type: ignore[assignment]
 
-        for edge in edges:
-            src_name = edge.get("src_name", "")
-            src_id = name_to_id.get(src_name)
-            if src_id is None:
-                continue  # skip edges whose source wasn't parsed
-            conn.execute(
-                """INSERT INTO edges (src_id, dst_name, dst_file, edge_type)
-                   VALUES (?, ?, ?, ?)""",
-                (
-                    src_id,
-                    edge.get("dst_name", ""),
-                    edge.get("dst_file"),
-                    edge.get("edge_type", "calls"),
-                ),
-            )
+            for edge in edges:
+                src_name = edge.get("src_name", "")
+                src_id = name_to_id.get(src_name)
+                if src_id is None:
+                    continue
+                conn.execute(
+                    """INSERT INTO edges (src_id, dst_name, dst_file, edge_type)
+                       VALUES (?, ?, ?, ?)""",
+                    (
+                        src_id,
+                        edge.get("dst_name", ""),
+                        edge.get("dst_file"),
+                        edge.get("edge_type", "calls"),
+                    ),
+                )
 
-        conn.commit()
+            conn.commit()
 
     def update_file_hash(self, filepath: str, sha256: str) -> None:
         """Record SHA-256 hash for a file after successful indexing."""
-        conn = self._get_conn()
-        conn.execute(
-            """INSERT OR REPLACE INTO file_hashes (filepath, sha256, indexed_at)
-               VALUES (?, ?, ?)""",
-            (filepath, sha256, time.time()),
-        )
-        conn.commit()
+        with self._lock:
+            conn = self._get_conn()
+            conn.execute(
+                """INSERT OR REPLACE INTO file_hashes (filepath, sha256, indexed_at)
+                   VALUES (?, ?, ?)""",
+                (filepath, sha256, time.time()),
+            )
+            conn.commit()
 
     def clear_file(self, filepath: str) -> None:
         """Remove all nodes, edges, and hash record for a file."""
-        conn = self._get_conn()
-        conn.execute("DELETE FROM nodes WHERE filepath = ?", (filepath,))
-        conn.execute("DELETE FROM file_hashes WHERE filepath = ?", (filepath,))
-        conn.commit()
+        with self._lock:
+            conn = self._get_conn()
+            conn.execute("DELETE FROM nodes WHERE filepath = ?", (filepath,))
+            conn.execute("DELETE FROM file_hashes WHERE filepath = ?", (filepath,))
+            conn.commit()
 
     def is_file_changed(self, filepath: str, current_sha256: str) -> bool:
         """Return True if file content differs from last indexed version."""
@@ -285,20 +291,21 @@ class GraphStore:
         }
 
     def close(self) -> None:
-        """Close the SQLite connection."""
-        if self._conn:
-            self._conn.close()
-            self._conn = None
+        """Close the SQLite connection for the current thread."""
+        if hasattr(self._local, 'conn') and self._local.conn:
+            self._local.conn.close()
+            delattr(self._local, 'conn')
 
 
     def set_state(self, key: str, value: str) -> None:
         """Store a key-value pair in the _state table."""
-        conn = self._get_conn()
-        conn.execute(
-            "INSERT OR REPLACE INTO _state (key, value) VALUES (?, ?)",
-            (key, value),
-        )
-        conn.commit()
+        with self._lock:
+            conn = self._get_conn()
+            conn.execute(
+                "INSERT OR REPLACE INTO _state (key, value) VALUES (?, ?)",
+                (key, value),
+            )
+            conn.commit()
 
     def get_state(self, key: str, default: str | None = None) -> str | None:
         """Retrieve a value from the _state table, or return default."""
@@ -310,67 +317,86 @@ class GraphStore:
 
     def prune_files(self, current_filepaths: set[str]) -> int:
         """Remove all data for filepaths NOT in *current_filepaths*."""
-        conn = self._get_conn()
+        with self._lock:
+            conn = self._get_conn()
 
-        # Find all indexed filepaths across all tables
-        all_fps: set[str] = set()
-        for table, col in [
-            ("nodes", "filepath"),
-            ("file_hashes", "filepath"),
-            ("wiki_pages", "filepath"),
-            ("embeddings", "filepath"),
-        ]:
+            all_fps: set[str] = set()
+            for table, col in [
+                ("nodes", "filepath"),
+                ("file_hashes", "filepath"),
+                ("wiki_pages", "filepath"),
+                ("embeddings", "filepath"),
+            ]:
+                try:
+                    rows = conn.execute(f"SELECT DISTINCT {col} FROM {table}").fetchall()
+                    all_fps.update(r[0] for r in rows)
+                except sqlite3.OperationalError:
+                    pass
+
+            stale = all_fps - current_filepaths
+            if not stale:
+                return 0
+
+            stale_list = list(stale)
+            placeholders = ",".join("?" for _ in stale_list)
+
+            conn.execute(
+                f"DELETE FROM nodes WHERE filepath IN ({placeholders})", stale_list
+            )
+            conn.execute(
+                f"DELETE FROM file_hashes WHERE filepath IN ({placeholders})", stale_list
+            )
+
             try:
-                rows = conn.execute(f"SELECT DISTINCT {col} FROM {table}").fetchall()
-                all_fps.update(r[0] for r in rows)
+                conn.execute(
+                    f"DELETE FROM wiki_pages_fts WHERE filepath IN ({placeholders})",
+                    stale_list,
+                )
             except sqlite3.OperationalError:
                 pass
-
-        stale = all_fps - current_filepaths
-        if not stale:
-            return 0
-
-        stale_list = list(stale)
-        placeholders = ",".join("?" for _ in stale_list)
-
-        conn.execute(
-            f"DELETE FROM nodes WHERE filepath IN ({placeholders})", stale_list
-        )
-        conn.execute(
-            f"DELETE FROM file_hashes WHERE filepath IN ({placeholders})", stale_list
-        )
-
-        try:
             conn.execute(
-                f"DELETE FROM wiki_pages_fts WHERE filepath IN ({placeholders})",
-                stale_list,
+                f"DELETE FROM wiki_pages WHERE filepath IN ({placeholders})", stale_list
             )
-        except sqlite3.OperationalError:
-            pass
-        conn.execute(
-            f"DELETE FROM wiki_pages WHERE filepath IN ({placeholders})", stale_list
-        )
 
-        conn.execute(
-            f"DELETE FROM embeddings WHERE filepath IN ({placeholders})", stale_list
-        )
+            conn.execute(
+                f"DELETE FROM embeddings WHERE filepath IN ({placeholders})", stale_list
+            )
 
-        conn.commit()
-        return len(stale_list)
+            conn.commit()
+            return len(stale_list)
 
     def upsert_embedding(
         self, filepath: str, vector: list[float] | Any, source: str, sha256: str
     ) -> None:
         """Store or update an embedding vector for a file."""
-        conn = self._get_conn()
-        dim = len(vector)
-        blob = struct.pack(f"{dim}f", *vector)
-        conn.execute(
-            """INSERT OR REPLACE INTO embeddings (filepath, vector, dim, source, sha256, updated_at)
-               VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)""",
-            (filepath, blob, dim, source, sha256),
-        )
-        conn.commit()
+        with self._lock:
+            conn = self._get_conn()
+            dim = len(vector)
+            blob = struct.pack(f"{dim}f", *vector)
+            conn.execute(
+                """INSERT OR REPLACE INTO embeddings (filepath, vector, dim, source, sha256, updated_at)
+                   VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)""",
+                (filepath, blob, dim, source, sha256),
+            )
+            conn.commit()
+
+    def check_embedding_provider(self, provider_key: str) -> bool:
+        """Return True if stored embeddings match provider_key, or if no embeddings exist yet.
+
+        Call this at query time.  If it returns False the caller should warn
+        the user that semantic search results will be unreliable and fall back
+        to FTS / graph search instead.
+
+        provider_key should be a stable string like "openai:text-embedding-3-small".
+        """
+        stored = self.get_state("embedding_provider")
+        if stored is None:
+            return True  # no embeddings written yet — no mismatch
+        return stored == provider_key
+
+    def set_embedding_provider(self, provider_key: str) -> None:
+        """Persist the provider+model key used to generate embeddings."""
+        self.set_state("embedding_provider", provider_key)
 
     def search_embeddings(
         self, query_vector: list[float] | Any, top_k: int = 5
@@ -420,40 +446,41 @@ class GraphStore:
         token_count: int | None = None,
     ) -> None:
         """Insert or update a wiki page and its FTS index entry."""
-        conn = self._get_conn()
-        conn.execute(
-            """INSERT OR REPLACE INTO wiki_pages
-               (filepath, md_path, module_name, module_path, is_leaf,
-                content_md, sha256, token_count, last_indexed_commit, stale, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, CURRENT_TIMESTAMP)""",
-            (
-                filepath,
-                md_path,
-                module_name,
-                module_path,
-                1 if is_leaf else 0,
-                content_md,
-                sha256,
-                token_count,
-                commit,
-            ),
-        )
-
-        try:
+        with self._lock:
+            conn = self._get_conn()
             conn.execute(
-                "DELETE FROM wiki_pages_fts WHERE filepath = ?", (filepath,)
+                """INSERT OR REPLACE INTO wiki_pages
+                   (filepath, md_path, module_name, module_path, is_leaf,
+                    content_md, sha256, token_count, last_indexed_commit, stale, updated_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, CURRENT_TIMESTAMP)""",
+                (
+                    filepath,
+                    md_path,
+                    module_name,
+                    module_path,
+                    1 if is_leaf else 0,
+                    content_md,
+                    sha256,
+                    token_count,
+                    commit,
+                ),
             )
-        except sqlite3.OperationalError:
-            pass
-        try:
-            conn.execute(
-                "INSERT INTO wiki_pages_fts (filepath, content_md) VALUES (?, ?)",
-                (filepath, content_md),
-            )
-        except sqlite3.OperationalError:
-            pass
 
-        conn.commit()
+            try:
+                conn.execute(
+                    "DELETE FROM wiki_pages_fts WHERE filepath = ?", (filepath,)
+                )
+            except sqlite3.OperationalError:
+                pass
+            try:
+                conn.execute(
+                    "INSERT INTO wiki_pages_fts (filepath, content_md) VALUES (?, ?)",
+                    (filepath, content_md),
+                )
+            except sqlite3.OperationalError:
+                pass
+
+            conn.commit()
 
     def get_wiki_page(self, filepath: str) -> dict | None:
         """Retrieve a wiki page by filepath."""
@@ -484,13 +511,14 @@ class GraphStore:
         """Mark wiki pages as stale (needing regeneration)."""
         if not filepaths:
             return
-        conn = self._get_conn()
-        placeholders = ",".join("?" for _ in filepaths)
-        conn.execute(
-            f"UPDATE wiki_pages SET stale = 1 WHERE filepath IN ({placeholders})",
-            filepaths,
-        )
-        conn.commit()
+        with self._lock:
+            conn = self._get_conn()
+            placeholders = ",".join("?" for _ in filepaths)
+            conn.execute(
+                f"UPDATE wiki_pages SET stale = 1 WHERE filepath IN ({placeholders})",
+                filepaths,
+            )
+            conn.commit()
 
     def get_stale_wiki_pages(self) -> list[str]:
         """Return filepaths of all wiki pages marked as stale."""

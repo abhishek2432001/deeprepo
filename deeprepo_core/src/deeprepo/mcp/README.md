@@ -86,7 +86,7 @@ Create or edit `~/.cursor/mcp.json`:
       "cwd": "/path/to/your/project",
       "env": {
         "LLM_PROVIDER": "ollama",
-        "OLLAMA_MODEL": "gemma3"
+        "OLLAMA_MODEL": "llama3.1:8b"
       }
     }
   }
@@ -105,7 +105,7 @@ Create or edit `~/Library/Application Support/Claude/claude_desktop_config.json`
       "args": ["-m", "deeprepo.mcp.server"],
       "env": {
         "LLM_PROVIDER": "ollama",
-        "OLLAMA_MODEL": "gemma3"
+        "OLLAMA_MODEL": "llama3.1:8b"
       }
     }
   }
@@ -124,7 +124,7 @@ Create or edit `%APPDATA%\Claude\claude_desktop_config.json`:
       "args": ["-m", "deeprepo.mcp.server"],
       "env": {
         "LLM_PROVIDER": "ollama",
-        "OLLAMA_MODEL": "gemma3"
+        "OLLAMA_MODEL": "llama3.1:8b"
       }
     }
   }
@@ -143,7 +143,7 @@ The MCP configuration can be set in `.gemini/mcp_servers.json`:
       "args": ["-m", "deeprepo.mcp.server"],
       "env": {
         "LLM_PROVIDER": "ollama",
-        "OLLAMA_MODEL": "gemma3"
+        "OLLAMA_MODEL": "llama3.1:8b"
       }
     }
   }
@@ -162,7 +162,7 @@ The MCP configuration can be set in `.gemini/mcp_servers.json`:
 | `ANTHROPIC_API_KEY` | Anthropic API key (if using Anthropic) | - |
 | `GOOGLE_API_KEY` | Google API key (if using Gemini) | - |
 | `HF_API_KEY` or `HUGGINGFACE_API_KEY` | HuggingFace API key (if using HuggingFace) | - |
-| `OLLAMA_MODEL` | Ollama LLM model override | `llama3.2` |
+| `OLLAMA_MODEL` | Ollama LLM model override | `llama3.1:8b` |
 | `OLLAMA_EMBED_MODEL` | Ollama embedding model override | `nomic-embed-text` |
 | `OLLAMA_BASE_URL` | Ollama server URL | `http://localhost:11434` |
 
@@ -206,7 +206,7 @@ When configured with branch isolation, each git branch gets its own SQLite datab
       "args": ["-m", "deeprepo.mcp.server"],
       "env": {
         "LLM_PROVIDER": "ollama",
-        "OLLAMA_MODEL": "gemma3"
+        "OLLAMA_MODEL": "llama3.1:8b"
       }
     }
   }

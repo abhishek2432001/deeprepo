@@ -48,7 +48,7 @@ class OllamaEmbedding(EmbeddingProvider):
                 "1. Install Ollama: https://ollama.ai/download\n"
                 "2. Start the server: ollama serve\n"
                 "3. Pull embedding model: ollama pull nomic-embed-text\n"
-                "4. Pull LLM model: ollama pull llama3.2\n\n"
+                "4. Pull LLM model: ollama pull llama3.1:8b\n\n"
                 "After setup, Ollama provides unlimited free usage."
             )
         except requests.exceptions.Timeout:
@@ -114,7 +114,7 @@ class OllamaLLM(LLMProvider):
             OllamaConnectionError: If Ollama is not running.
         """
         import os
-        self.model = model or os.environ.get("OLLAMA_MODEL", "llama3.2")
+        self.model = model or os.environ.get("OLLAMA_MODEL", "llama3.1:8b")
         self.base_url = (base_url or os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")).rstrip('/')
         self._check_connection()
         
@@ -129,7 +129,7 @@ class OllamaLLM(LLMProvider):
                 "Ollama is not running. Please:\n"
                 "1. Install Ollama: https://ollama.ai/download\n"
                 "2. Start the server: ollama serve\n"
-                "3. Pull LLM model: ollama pull llama3.2\n"
+                "3. Pull LLM model: ollama pull llama3.1:8b\n"
                 "4. Pull embedding model: ollama pull nomic-embed-text\n\n"
                 "After setup, Ollama provides unlimited free usage."
             )
@@ -145,48 +145,45 @@ class OllamaLLM(LLMProvider):
             )
         
     def generate(
-        self, 
-        prompt: str, 
+        self,
+        prompt: str,
         context: Optional[str] = None,
         system_prompt: Optional[str] = None
     ) -> str:
-        """Generate a response using Ollama."""
-        parts = []
-        
-        if system_prompt:
-            parts.append(system_prompt)
-        else:
-            parts.append(
-                "You are a helpful assistant that answers questions based on the provided context. "
-                "If the context doesn't contain relevant information, say so clearly."
-            )
-        
+        """Generate a response using Ollama's /api/chat endpoint."""
+        import os
+        timeout = int(os.environ.get("OLLAMA_TIMEOUT", "300"))
+
+        sys_text = system_prompt or (
+            "You are a helpful assistant that answers questions based on the provided context. "
+            "If the context doesn't contain relevant information, say so clearly."
+        )
+
+        user_text = prompt
         if context:
-            parts.append(f"\nContext:\n{context}")
-            
-        parts.append(f"\nQuestion: {prompt}")
-        
-        full_prompt = "\n".join(parts)
-        
+            user_text = f"Context:\n{context}\n\nQuestion: {prompt}"
+
         try:
             response = requests.post(
-                f"{self.base_url}/api/generate",
+                f"{self.base_url}/api/chat",
                 json={
                     "model": self.model,
-                    "prompt": full_prompt,
-                    "stream": False
+                    "messages": [
+                        {"role": "system", "content": sys_text},
+                        {"role": "user", "content": user_text},
+                    ],
+                    "stream": False,
                 },
-                timeout=60
+                timeout=timeout,
             )
             response.raise_for_status()
-            
-            return response.json()["response"]
-        except requests.exceptions.HTTPError as e:
+            return response.json()["message"]["content"]
+        except requests.exceptions.HTTPError:
             if response.status_code == 404:
                 raise RuntimeError(
                     f"Model '{self.model}' not found in Ollama.\n"
                     f"Please pull the model: ollama pull {self.model}\n\n"
-                    f"Popular models: llama3.2, mistral, phi3, gemma2"
+                    f"Popular models: qwen2.5-coder:7b, llama3.1:8b, mistral-nemo:12b"
                 )
             raise
 
