@@ -1,723 +1,579 @@
-# Using DeepRepo to Automate Your AI Coding Workflow
+# Developer Workflow Guide
 
-This guide shows you how to use DeepRepo with Cursor, Antigravity, and other AI assistants to automate your development workflow.
+How to use DeepRepo in your daily development workflow — from first setup through CI, code review, and AI-IDE integration.
 
 ---
 
 ## Table of Contents
 
-1. [Quick Wins: Instant Use Cases](#quick-wins-instant-use-cases)
-2. [Workflow 1: AI-Powered Code Understanding](#workflow-1-ai-powered-code-understanding)
-3. [Workflow 2: Context Injection for AI Assistants](#workflow-2-context-injection-for-ai-assistants)
-4. [Workflow 3: Automated Documentation](#workflow-3-automated-documentation)
-5. [Workflow 4: Code Review Automation](#workflow-4-code-review-automation)
-6. [Workflow 5: Onboarding Assistant](#workflow-5-onboarding-assistant)
-7. [Advanced: Building Custom AI Tools](#advanced-building-custom-ai-tools)
-8. [Integration Examples](#integration-examples)
+1. [First-Time Setup](#1-first-time-setup)
+2. [Daily Developer Loop](#2-daily-developer-loop)
+3. [Using the Wiki Viewer](#3-using-the-wiki-viewer)
+4. [AI IDE Integration (MCP)](#4-ai-ide-integration-mcp)
+5. [Python API Recipes](#5-python-api-recipes)
+6. [Branch Isolation Workflow](#6-branch-isolation-workflow)
+7. [Automation & CI Recipes](#7-automation--ci-recipes)
+8. [Troubleshooting](#8-troubleshooting)
 
 ---
 
-## Quick Wins: Instant Use Cases
+## 1. First-Time Setup
 
-Here are things you can do **right now** with DeepRepo:
+### Install
 
-### 1. **Understand Any New Codebase in Minutes**
+```bash
+cd deeprepo_core
+pip install -e ".[mcp]"    # includes MCP server support
+```
+
+### Install Ollama (free, local — recommended)
+
+```bash
+# macOS
+brew install ollama
+ollama serve                          # keep this running in a terminal
+
+ollama pull nomic-embed-text          # embedding model (~274 MB)
+ollama pull llama3.1:8b               # LLM (~4.7 GB)
+```
+
+### Verify
+
+```bash
+deeprepo init                         # detects Ollama, prints the ingest command
+```
+
+### Index your project
+
+```bash
+cd /path/to/your/project
+deeprepo ingest .
+```
+
+This builds three things in `.deeprepo/`:
+- `default.db` — SQLite database (graph, embeddings, wiki index, file state)
+- `wiki/` — browsable `.md` files, one per module
+
+**Add `.deeprepo/` to your `.gitignore`** — it's a local cache, not source code.
+
+---
+
+## 2. Daily Developer Loop
+
+### Morning: orient yourself
+
+```bash
+deeprepo serve                        # opens http://localhost:8080
+# read the overview page, then navigate to files you'll work on today
+```
+
+Or from the terminal:
+```bash
+deeprepo query "what changed recently and what depends on it?"
+deeprepo query "how does the auth flow work end-to-end?"
+```
+
+### Before editing a file
+
+```bash
+# understand what it does
+deeprepo query "explain router.py"
+
+# understand what you might break
+deeprepo query "what breaks if I change router.py?"
+```
+
+### Re-ingest after making changes
+
+```bash
+deeprepo ingest .                     # incremental — only changed files are re-processed
+```
+
+### End of day: check freshness
+
+```bash
+deeprepo status                       # shows stale files vs current branch
+```
+
+---
+
+## 3. Using the Wiki Viewer
+
+```bash
+deeprepo serve                        # default: http://localhost:8080
+deeprepo serve --port 9000            # custom port
+deeprepo serve --llm openai           # enable chat with OpenAI
+deeprepo serve --llm anthropic --embed openai  # split providers
+```
+
+The wiki viewer provides:
+- **Module overview page** — what the whole repo does, end-to-end data flow diagram
+- **Per-module pages** — plain-English explanation + architecture diagram + key concepts
+- **Full-text search** — search across all wiki pages in real time
+- **In-page chat** — ask questions, get answers grounded in the wiki
+
+Wiki `.md` files also live at `.deeprepo/wiki/` — you can open them directly in VS Code, Obsidian, or any Markdown viewer.
+
+### Regenerate wiki without re-indexing
+
+```bash
+# Re-run LLM wiki generation on already-indexed files (faster than full ingest)
+deeprepo wiki .
+deeprepo wiki . --workers 5           # parallelise LLM calls
+```
+
+---
+
+## 4. AI IDE Integration (MCP)
+
+DeepRepo exposes 7 MCP tools. When connected, your AI assistant calls them automatically when it needs to understand your code — instead of reading raw files and burning tokens.
+
+### Tool selection guide (for CLAUDE.md / system prompts)
+
+| Query pattern | Tool automatically called | Token cost |
+|---|---|---|
+| "where is X defined" | `find_symbol` | ~50 |
+| "show me the API of X" | `get_file_structure` | ~150 |
+| "how does X work / explain X" | `explain_file` | ~300 |
+| "what breaks if I change X" | `find_change_impact` | ~300 |
+| Any open-ended question | `ask_codebase` | ~600–2000 |
+| "overview of the project" | `get_project_overview` | ~600 |
+| First-time setup | `ingest_codebase` | — |
+
+### Configure Cursor
+
+Create or edit `~/.cursor/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "deeprepo": {
+      "command": "python",
+      "args": ["-m", "deeprepo.mcp.server"],
+      "env": {
+        "LLM_PROVIDER": "ollama"
+      }
+    }
+  }
+}
+```
+
+For OpenAI + Anthropic split:
+
+```json
+{
+  "mcpServers": {
+    "deeprepo": {
+      "command": "deeprepo-mcp",
+      "env": {
+        "EMBEDDING_PROVIDER": "openai",
+        "LLM_PROVIDER": "anthropic",
+        "OPENAI_API_KEY": "sk-...",
+        "ANTHROPIC_API_KEY": "sk-ant-..."
+      }
+    }
+  }
+}
+```
+
+### Configure Claude Desktop
+
+Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "deeprepo": {
+      "command": "deeprepo-mcp",
+      "env": {
+        "LLM_PROVIDER": "ollama"
+      }
+    }
+  }
+}
+```
+
+### Add CLAUDE.md to your project
+
+Create `.claude/CLAUDE.md` (or `CLAUDE.md`) at your project root. This tells Claude to prefer DeepRepo tools over raw file reads:
+
+```markdown
+## Code navigation with DeepRepo
+
+This project is indexed with DeepRepo. Before reading any source file directly,
+use these MCP tools — they are much cheaper in tokens:
+
+- `get_project_overview()` — start here at the beginning of a session
+- `find_symbol(name)` — locate a class or function by name
+- `get_file_structure(filepath)` — see a file's public API without reading it
+- `explain_file(filepath)` — understand what a file does in plain English
+- `find_change_impact(filepath)` — always call this before editing a file
+- `ask_codebase(question)` — any open-ended question about the code
+
+Only use Read/Grep on a file after the above tools haven't answered your question.
+```
+
+### Start a session with the built-in prompt
+
+In Claude Desktop or Cursor, you can trigger the built-in prompt:
+
+```
+use the start_coding_session prompt for /path/to/my-project
+```
+
+This walks the assistant through: overview → explain relevant files → impact analysis → targeted question answering.
+
+---
+
+## 5. Python API Recipes
+
+### Basic setup
 
 ```python
 from deeprepo import DeepRepoClient
 
-# Index a new project you just cloned
-client = DeepRepoClient(provider_name="ollama")  # FREE!
-client.ingest("./new-project")
+# Ollama (free, local)
+client = DeepRepoClient(provider_name="ollama")
 
-# Ask questions
-response = client.query("What does this project do?")
-print(response['answer'])
+# OpenAI
+client = DeepRepoClient(provider_name="openai")   # needs OPENAI_API_KEY
 
-response = client.query("How do I run tests?")
-print(response['answer'])
-
-response = client.query("Where is the authentication logic?")
-print(response['answer'])
+# Split providers — Anthropic LLM + OpenAI embeddings
+client = DeepRepoClient(
+    embedding_provider_name="openai",
+    llm_provider_name="anthropic",
+)
 ```
 
-### 2. **Get Instant Context for Your Current Task**
+### Ingest
 
 ```python
-# When working on a feature
-response = client.query("Show me all API endpoints related to user management")
-print(response['answer'])
-print("\nSources:", [s['metadata']['file'] for s in response['sources']])
+result = client.ingest("/path/to/project")
+# result keys: files_scanned, chunks_processed, graph_nodes, graph_edges,
+#              wiki_generated, wiki_skipped, embeddings_stored, message
+print(f"Indexed {result['files_scanned']} files")
+print(f"Wiki: {result['wiki_generated']} new, {result['wiki_skipped']} cached")
 ```
 
-### 3. **Find Examples in Your Codebase**
+### Query
 
 ```python
-# Need to know how to do something?
-response = client.query("Show me examples of how we handle database transactions")
+response = client.query("How does the router detect intents?")
+
+# response keys: answer, sources, intent, strategy, retrieval, token_estimate, history
 print(response['answer'])
+print(f"Intent: {response['intent']}")        # navigate | impact | explain | debug | review | general
+print(f"Strategy: {response['strategy']}")    # e.g. wiki_plus_skeleton, blast_radius, symbol_lookup
+print(f"Sources: {response['sources']}")      # list[str] — file paths used as context
+print(f"Tokens used: {response['token_estimate']}")
 ```
 
----
+### Graph API (zero-LLM operations)
 
-## Workflow 1: AI-Powered Code Understanding
+```python
+# Symbol lookup (~50 tokens equivalent)
+symbol = client.graph_store.get_symbol("AuthService")
+# {"name": "AuthService", "type": "class", "filepath": "auth/service.py",
+#  "line_start": 42, "signature": "class AuthService:", "docstring": "…"}
 
-### Problem
-You're joining a new project or need to understand a complex codebase quickly.
+# File API skeleton (~150 tokens)
+skeleton = client.graph_store.get_file_skeleton("auth/service.py")
+# "[class] class AuthService: (line 42)\n[function] def login(…): (line 55)\n…"
 
-### Solution: DeepRepo Knowledge Base
+# Blast-radius analysis
+affected = client.graph_store.get_blast_radius("auth/service.py", depth=2)
+# ["api/views.py", "tests/test_auth.py", "middleware/auth.py"]
 
-**Create a script: `understand_codebase.py`**
+# Graph statistics
+stats = client.graph_store.get_stats()
+# {"nodes": 252, "edges": 1779, "files": 17}
+```
+
+### Wiki API
+
+```python
+# Get a module's wiki page
+page = client.wiki_engine.get_page("auth/service.py")
+
+# Get the whole-repo overview
+overview = client.wiki_engine.get_repo_overview(graph_store=client.graph_store)
+
+# Full-text search across all wiki pages
+results = client.wiki_engine.search("authentication flow")
+# [{"key": "_module_auth", "content": "…", "score": 0.95}, …]
+
+# Regenerate wiki for all modules
+client.wiki_engine.bulk_generate(
+    module_map=client.graph_store.get_module_map(),
+    workers=4,
+)
+```
+
+### Freshness check
+
+```python
+status = client.get_freshness_status()
+# {"branch": "feat/my-feature", "diff_files": 3, "stale_files": ["router.py", …]}
+```
+
+### Codebase explorer script
 
 ```python
 #!/usr/bin/env python3
-"""
-AI-Powered Codebase Explorer
-Usage: python understand_codebase.py /path/to/project
-"""
-
+"""Quick codebase explorer — run: python explore.py /path/to/project"""
 import sys
 from deeprepo import DeepRepoClient
 
-def explore_codebase(project_path):
-    print(f"Indexing {project_path}...")
-    
+def explore(path):
     client = DeepRepoClient(provider_name="ollama")
-    result = client.ingest(project_path)
-    
-    print(f"Indexed {result['chunks_processed']} chunks from {result['files_scanned']} files\n")
-    
-    # Common onboarding questions
-    questions = [
-        "What is the main purpose of this project?",
-        "What's the tech stack used?",
-        "How is the project structured?",
-        "What are the main entry points?",
-        "How do I run this project locally?",
-        "What are the key features?",
-        "Where should I start reading the code?",
-    ]
-    
-    print("Let me explain this codebase:\n")
-    print("="*70)
-    
-    for i, question in enumerate(questions, 1):
-        print(f"\n{i}. {question}")
-        response = client.query(question, top_k=3)
-        print(f"\n{response['answer']}\n")
-        print("-"*70)
-    
-    # Interactive mode
-    print("\n\nInteractive Mode - Ask me anything about this codebase!")
-    print("(Type 'exit' to quit)\n")
-    
-    while True:
-        question = input("Your question: ")
-        if question.lower() in ['exit', 'quit', 'q']:
-            break
-        
-        response = client.query(question)
-        print(f"\n{response['answer']}\n")
-        
-        if response.get('sources'):
-            print("Relevant files:")
-            for source in response['sources'][:3]:
-                file = source['metadata']['file']
-                score = source['score']
-                print(f"   • {file} (relevance: {score:.2f})")
-            print()
-
-if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print("Usage: python understand_codebase.py /path/to/project")
-        sys.exit(1)
-    
-    explore_codebase(sys.argv[1])
-```
-
-**Usage:**
-```bash
-python understand_codebase.py ~/projects/my-app
-```
-
----
-
-## Workflow 2: Context Injection for AI Assistants
-
-### Problem
-When using Cursor or Antigravity, they don't have full context about your entire codebase.
-
-### Solution: DeepRepo Context Provider
-
-**Create: `ai_context_provider.py`**
-
-```python
-#!/usr/bin/env python3
-"""
-Provides rich context to AI assistants like Cursor or Antigravity.
-Saves context to a file that you can @mention in your AI chat.
-"""
-
-from deeprepo import DeepRepoClient
-import json
-import sys
-
-class AIContextProvider:
-    def __init__(self, project_path):
-        self.client = DeepRepoClient(provider_name="ollama")
-        print(f"Loading knowledge base for {project_path}...")
-        self.client.ingest(project_path)
-        print("Ready!\n")
-    
-    def get_context_for_task(self, task_description):
-        """Get relevant context for a coding task."""
-        
-        # Query for relevant code
-        response = self.client.query(
-            f"What code is relevant for this task: {task_description}",
-            top_k=10
-        )
-        
-        # Build context document
-        context = {
-            "task": task_description,
-            "answer": response['answer'],
-            "relevant_files": [],
-            "code_snippets": []
-        }
-        
-        for source in response['sources']:
-            file_info = {
-                "file": source['metadata']['file'],
-                "relevance_score": source['score'],
-                "snippet": source['text'][:500]  # First 500 chars
-            }
-            context['relevant_files'].append(file_info)
-        
-        return context
-    
-    def save_context_file(self, task_description, output_file=".ai_context.md"):
-        """Save context as a Markdown file you can @mention in Cursor/Antigravity."""
-        
-        context = self.get_context_for_task(task_description)
-        
-        markdown = f"""# AI Context: {task_description}
-
-## Task Overview
-{context['answer']}
-
-## Relevant Files
-
-"""
-        for i, file_info in enumerate(context['relevant_files'], 1):
-            markdown += f"""
-### {i}. {file_info['file']} (Relevance: {file_info['relevance_score']:.2f})
-
-```
-{file_info['snippet']}
-```
-
-"""
-        
-        with open(output_file, 'w') as f:
-            f.write(markdown)
-        
-        print(f"Context saved to {output_file}")
-        print(f"\nIn Cursor/Antigravity, type: @{output_file}")
-        print("   Then describe your task and the AI will have full context!\n")
-        
-        return output_file
-
-
-def main():
-    if len(sys.argv) < 3:
-        print("Usage: python ai_context_provider.py <project_path> <task_description>")
-        print("\nExample:")
-        print('  python ai_context_provider.py ~/my-app "Add user authentication"')
-        sys.exit(1)
-    
-    project_path = sys.argv[1]
-    task_description = " ".join(sys.argv[2:])
-    
-    provider = AIContextProvider(project_path)
-    provider.save_context_file(task_description)
-
-
-if __name__ == "__main__":
-    main()
-```
-
-**Usage with Cursor/Antigravity:**
-
-```bash
-# Get context for your current task
-python ai_context_provider.py ~/my-project "Add authentication to the API"
-
-# This creates .ai_context.md
-
-# In Cursor or AI chat, type:
-# @.ai_context.md Help me implement authentication
-```
-
-Now your AI assistant has **full context** from your codebase!
-
----
-
-## Workflow 3: Automated Documentation
-
-### Problem
-Documentation is always out of date.
-
-### Solution: Auto-Generate Docs from Code
-
-**Create: `auto_document.py`**
-
-```python
-#!/usr/bin/env python3
-"""
-Automatically generate documentation from your codebase.
-"""
-
-from deeprepo import DeepRepoClient
-
-class AutoDocumenter:
-    def __init__(self, project_path):
-        self.client = DeepRepoClient(provider_name="ollama")
-        self.client.ingest(project_path)
-    
-    def generate_readme(self, output_file="AUTO_GENERATED_README.md"):
-        """Generate a comprehensive README."""
-        
-        sections = {
-            "Overview": "What is the main purpose and functionality of this project?",
-            "Architecture": "How is this project architecturally structured? What are the main components?",
-            "Tech Stack": "What technologies, frameworks, and libraries does this project use?",
-            "Getting Started": "How do I set up and run this project locally? What are the prerequisites?",
-            "Key Features": "What are the main features of this project?",
-            "API Documentation": "What are the main API endpoints or interfaces?",
-            "Testing": "How do I run tests? What testing frameworks are used?",
-            "Contributing": "What should developers know when contributing to this project?",
-        }
-        
-        readme = "# Project Documentation\n\n"
-        readme += "*Auto-generated using DeepRepo*\n\n"
-        readme += "---\n\n"
-        
-        for section, question in sections.items():
-            print(f"Generating: {section}...")
-            response = self.client.query(question, top_k=5)
-            
-            readme += f"## {section}\n\n"
-            readme += f"{response['answer']}\n\n"
-            
-            # Add source references
-            if response.get('sources'):
-                readme += "**Source files:**\n"
-                unique_files = set()
-                for source in response['sources'][:5]:
-                    file = source['metadata']['file']
-                    if file not in unique_files:
-                        readme += f"- `{file}`\n"
-                        unique_files.add(file)
-                readme += "\n"
-            
-            readme += "---\n\n"
-        
-        with open(output_file, 'w') as f:
-            f.write(readme)
-        
-        print(f"\nDocumentation generated: {output_file}")
-        return output_file
-
-
-if __name__ == "__main__":
-    import sys
-    
-    if len(sys.argv) < 2:
-        print("Usage: python auto_document.py <project_path>")
-        sys.exit(1)
-    
-    documenter = AutoDocumenter(sys.argv[1])
-    documenter.generate_readme()
-```
-
-**Usage:**
-```bash
-python auto_document.py ~/my-project
-# Creates AUTO_GENERATED_README.md
-```
-
----
-
-## Workflow 4: Code Review Automation
-
-### Problem
-Need to understand what changed in a PR and its impact.
-
-### Solution: AI Code Review Assistant
-
-**Create: `code_review_assistant.py`**
-
-```python
-#!/usr/bin/env python3
-"""
-AI-powered code review assistant.
-Analyzes changes and provides context.
-"""
-
-from deeprepo import DeepRepoClient
-import subprocess
-
-class CodeReviewAssistant:
-    def __init__(self, project_path):
-        self.client = DeepRepoClient(provider_name="ollama")
-        self.client.ingest(project_path)
-        self.project_path = project_path
-    
-    def get_changed_files(self, branch="main"):
-        """Get files changed in current branch vs main."""
-        try:
-            result = subprocess.run(
-                ["git", "diff", "--name-only", branch],
-                cwd=self.project_path,
-                capture_output=True,
-                text=True
-            )
-            return result.stdout.strip().split('\n')
-        except:
-            return []
-    
-    def review_changes(self, changed_files):
-        """Generate review comments for changed files."""
-        
-        print("AI Code Review\n")
-        print("="*70 + "\n")
-        
-        for file in changed_files:
-            if not file:
-                continue
-            
-            print(f"{file}\n")
-            
-            # Ask AI about this file
-            questions = [
-                f"What is the purpose of {file}?",
-                f"What other parts of the codebase depend on {file}?",
-                f"What should I check when reviewing changes to {file}?",
-            ]
-            
-            for question in questions:
-                response = self.client.query(question, top_k=3)
-                print(f"   • {response['answer'][:200]}...")
-            
-            print("\n" + "-"*70 + "\n")
-
-
-if __name__ == "__main__":
-    import sys
-    
-    project_path = sys.argv[1] if len(sys.argv) > 1 else "."
-    
-    assistant = CodeReviewAssistant(project_path)
-    changed_files = assistant.get_changed_files()
-    
-    if changed_files:
-        assistant.review_changes(changed_files)
-    else:
-        print("No changes detected")
-```
-
-**Usage:**
-```bash
-python code_review_assistant.py ~/my-project
-```
-
----
-
-## Workflow 5: Onboarding Assistant
-
-### Problem
-New team members need to understand the codebase.
-
-### Solution: Interactive Onboarding Bot
-
-**Create: `onboarding_bot.py`**
-
-```python
-#!/usr/bin/env python3
-"""
-Interactive onboarding assistant for new developers.
-"""
-
-from deeprepo import DeepRepoClient
-
-def onboarding_session(project_path):
-    print("Welcome to the team!\n")
-    print("I'm your AI onboarding assistant. Let me help you understand this codebase.\n")
-    
-    client = DeepRepoClient(provider_name="ollama")
-    
-    print("Indexing the codebase... (this takes a minute)\n")
-    result = client.ingest(project_path)
+    result = client.ingest(path)
     print(f"Indexed {result['files_scanned']} files\n")
-    
-    # Guided tour
-    tour = [
-        ("Project Overview", "Give me a high-level overview of what this project does"),
-        ("Architecture", "Explain the overall architecture and main components"),
-        ("Your First Task", "What would be a good first task for a new developer?"),
-        ("Common Tasks", "What are the most common development tasks in this project?"),
-        ("Development Setup", "How do I set up my development environment?"),
-    ]
-    
-    print("Let me give you a guided tour:\n")
-    print("="*70 + "\n")
-    
-    for title, question in tour:
-        print(f"## {title}\n")
-        response = client.query(question, top_k=5)
-        print(f"{response['answer']}\n")
-        
-        if response.get('sources'):
-            print("Key files to check:")
-            for source in response['sources'][:3]:
-                print(f"   • {source['metadata']['file']}")
-        
-        print("\n" + "-"*70 + "\n")
-        input("Press Enter to continue...")
-        print()
-    
-    # Free-form Q&A
-    print("\n Now ask me anything! (Type 'exit' to quit)\n")
-    
-    while True:
-        question = input("You: ")
-        if question.lower() in ['exit', 'quit', 'done']:
-            print("\nGood luck with your onboarding!")
-            break
-        
-        response = client.query(question)
-        print(f"\nAssistant: {response['answer']}\n")
 
+    questions = [
+        "What does this project do?",
+        "What are the main components?",
+        "What's the entry point?",
+        "How do I run tests?",
+    ]
+    for q in questions:
+        r = client.query(q)
+        print(f"Q: {q}\nA: {r['answer']}\n")
+
+    print("Interactive mode (type 'exit' to quit)")
+    while True:
+        q = input("You: ")
+        if q.lower() in ("exit", "quit"):
+            break
+        r = client.query(q)
+        print(f"A: {r['answer']}")
+        if r['sources']:
+            print(f"   Sources: {', '.join(r['sources'][:3])}\n")
 
 if __name__ == "__main__":
-    import sys
-    
-    if len(sys.argv) < 2:
-        print("Usage: python onboarding_bot.py <project_path>")
-        sys.exit(1)
-    
-    onboarding_session(sys.argv[1])
+    explore(sys.argv[1] if len(sys.argv) > 1 else ".")
 ```
 
 ---
 
-## Advanced: Building Custom AI Tools
+## 6. Branch Isolation Workflow
 
-### 1. **VS Code Extension (Concept)**
+DeepRepo supports per-branch SQLite databases. Feature branches start from the base-branch cache and only re-index changed files.
 
-You could build a VS Code extension that:
+```bash
+# Index main branch
+git checkout main
+deeprepo ingest . --branch-isolation
 
-```python
-# vscode_extension_backend.py
-from deeprepo import DeepRepoClient
-from flask import Flask, request, jsonify
+# Start feature branch — seeds from main's cache
+git checkout -b feat/auth-refactor
+deeprepo ingest . --branch-isolation --base-branch main
+# Only changed files are re-processed; the rest is inherited from main
 
-app = Flask(__name__)
-client = None
-
-@app.route('/init', methods=['POST'])
-def init_project():
-    global client
-    project_path = request.json['project_path']
-    client = DeepRepoClient(provider_name="ollama")
-    client.ingest(project_path)
-    return jsonify({"status": "ready"})
-
-@app.route('/query', methods=['POST'])
-def query():
-    question = request.json['question']
-    response = client.query(question)
-    return jsonify(response)
-
-if __name__ == '__main__':
-    app.run(port=5000)
+# Check status
+deeprepo status
 ```
 
-### 2. **Git Hooks for Automated Reviews**
+In Python:
 
-**Create: `.git/hooks/pre-commit`**
+```python
+client = DeepRepoClient(
+    provider_name="ollama",
+    branch_isolation=True,
+    base_branches=["main", "develop"],
+)
+```
+
+Database files created:
+- `main` branch → `.deeprepo/main.db`
+- `feat/auth-refactor` → `.deeprepo/feat-auth-refactor.db`
+- Wiki folders → `.deeprepo/wiki/` (default) and `.deeprepo/feat-auth-refactor-wiki/`
+
+---
+
+## 7. Automation & CI Recipes
+
+### Pre-commit hook — blast-radius check
+
+`.git/hooks/pre-commit`:
 
 ```bash
 #!/bin/bash
-# AI-powered pre-commit check
+# Warn if changed files have many dependents
 
-python << END
+CHANGED=$(git diff --cached --name-only | grep '\.py$')
+if [ -z "$CHANGED" ]; then exit 0; fi
+
+python3 - <<'EOF'
+import subprocess, sys
+sys.path.insert(0, "deeprepo_core/src")
 from deeprepo import DeepRepoClient
-import subprocess
 
-# Get staged files
-result = subprocess.run(['git', 'diff', '--cached', '--name-only'], 
-                       capture_output=True, text=True)
-files = result.stdout.strip().split('\n')
+client = DeepRepoClient(provider_name="ollama")
+files = subprocess.run(
+    ["git", "diff", "--cached", "--name-only"],
+    capture_output=True, text=True
+).stdout.strip().split("\n")
 
+for f in files:
+    if not f.endswith(".py"):
+        continue
+    affected = client.graph_store.get_blast_radius(f, depth=2)
+    if len(affected) > 5:
+        print(f"⚠  {f} affects {len(affected)} files: {', '.join(affected[:5])} …")
+EOF
+```
+
+### CI — freshness report
+
+```python
+# ci_freshness_check.py
+from deeprepo import DeepRepoClient
+
+client = DeepRepoClient(provider_name="ollama")
+status = client.get_freshness_status()
+
+if status["diff_files"] > 0:
+    print(f"WARNING: {status['diff_files']} file(s) changed since last ingest:")
+    for f in status.get("stale_files", []):
+        print(f"  - {f}")
+    print("Run: deeprepo ingest .")
+```
+
+### Auto-update wiki on merge
+
+```bash
+# .github/workflows/wiki.yml (example)
+# Run deeprepo ingest after merging to main
+# deeprepo ingest . --no-branch-isolation
+# Then commit/upload the .deeprepo/wiki/ folder as GitHub Pages
+```
+
+### Code review assistant
+
+```python
+#!/usr/bin/env python3
+"""Blast-radius report for a PR. Usage: python review.py main"""
+import subprocess, sys
+sys.path.insert(0, "deeprepo_core/src")
+from deeprepo import DeepRepoClient
+
+base = sys.argv[1] if len(sys.argv) > 1 else "main"
 client = DeepRepoClient(provider_name="ollama")
 client.ingest(".")
 
-for file in files:
-    if file.endswith('.py'):
-        response = client.query(f"What should I check before committing changes to {file}?")
-        print(f"\nReview checklist for {file}:")
-        print(response['answer'])
+changed = subprocess.run(
+    ["git", "diff", "--name-only", base],
+    capture_output=True, text=True
+).stdout.strip().split("\n")
 
-END
-```
-
-### 3. **Slack Bot for Code Questions**
-
-```python
-# slack_bot.py
-from slack_bolt import App
-from deeprepo import DeepRepoClient
-
-app = App(token="your-slack-token")
-client = DeepRepoClient(provider_name="ollama")
-client.ingest("./your-project")
-
-@app.message("ask-code")
-def handle_code_question(message, say):
-    question = message['text'].replace('ask-code', '').strip()
-    response = client.query(question)
-    
-    say(f"{response['answer']}\n\n" + 
-        f"Relevant files: {', '.join([s['metadata']['file'] for s in response['sources'][:3]])}")
-
-if __name__ == "__main__":
-    app.start(port=3000)
+print(f"Changed files vs {base}: {len(changed)}\n")
+for f in changed:
+    if not f:
+        continue
+    affected = client.graph_store.get_blast_radius(f, depth=2)
+    impact = f"({len(affected)} dependents)" if affected else "(no dependents)"
+    print(f"  {f}  {impact}")
+    for dep in affected[:3]:
+        print(f"      → {dep}")
 ```
 
 ---
 
-## Integration Examples
+## 8. Troubleshooting
 
-### **With Cursor**
-
-1. **Create context file before coding:**
-```bash
-python ai_context_provider.py ~/my-project "Add OAuth authentication"
-```
-
-2. **In Cursor, start chat:**
-```
-@.ai_context.md I need to add OAuth authentication. 
-Show me where to start and what files to modify.
-```
-
-Cursor now has full context from DeepRepo!
-
-### **With Antigravity (or any AI assistant)**
-
-1. **Run DeepRepo query:**
-```python
-from deeprepo import DeepRepoClient
-
-client = DeepRepoClient(provider_name="ollama")
-client.ingest("./my-project")
-
-response = client.query("Explain the authentication flow")
-print(response['answer'])
-```
-
-2. **Copy the answer + sources to your AI chat:**
-```
-I'm working on a project with this authentication flow:
-[paste DeepRepo answer]
-
-Based on this, help me add 2FA support.
-```
-
-### **As a CLI Tool**
+### "Cannot connect to Ollama"
 
 ```bash
-# Add to ~/.bashrc or ~/.zshrc
-alias ask-code='python -c "from deeprepo import DeepRepoClient; c = DeepRepoClient(provider_name=\"ollama\"); c.ingest(\".\"); print(c.query(input(\"Question: \"))[\"answer\"])"'
-
-# Then use:
-cd ~/my-project
-ask-code
-# Question: How do I run tests?
+ollama serve                           # start the server
+ollama list                            # verify models are pulled
+ollama pull nomic-embed-text
+ollama pull llama3.1:8b
 ```
+
+### "No documents indexed yet"
+
+```bash
+deeprepo ingest .                      # run ingest first
+deeprepo status                        # check what's indexed
+```
+
+### Ingest is slow
+
+```bash
+# Use more parallel wiki workers
+deeprepo ingest . --workers 5
+
+# Skip wiki generation if you only need graph/embeddings
+deeprepo ingest . --no-wiki
+
+# Regenerate wiki separately after indexing
+deeprepo wiki .
+```
+
+### Wrong branch database being used
+
+```bash
+deeprepo status                        # shows current branch and db path
+deeprepo ingest . --no-branch-isolation  # force using default.db
+```
+
+### Mermaid diagrams show "Syntax error"
+
+The wiki viewer automatically sanitizes mermaid output from the LLM. If you still see errors:
+
+```bash
+# Re-generate wiki pages (forces LLM to regenerate all diagrams)
+deeprepo wiki .
+```
+
+### Wiki pages show stale content
+
+```bash
+# Delete cached pages and regenerate
+rm -rf .deeprepo/wiki/
+deeprepo wiki .
+```
+
+### MCP server not picked up by Cursor
+
+1. Verify the config file path: `~/.cursor/mcp.json`
+2. Check that `deeprepo-mcp` is on PATH: `which deeprepo-mcp`
+3. Restart Cursor after editing `mcp.json`
+4. In Cursor settings → MCP, check the server status indicator
+
+### API key errors
+
+```bash
+export OPENAI_API_KEY=sk-...
+export ANTHROPIC_API_KEY=sk-ant-...
+# Then re-run deeprepo
+```
+
+Or put them in a `.env` file and `source .env` before running.
 
 ---
 
-## Recommended Daily Workflow
+## Quick Reference
 
-### Morning Standup
 ```bash
-# Get context for today's work
-python ai_context_provider.py ~/my-project "Implement user profile page"
+# First time
+deeprepo init
+deeprepo ingest .
+
+# Daily use
+deeprepo serve                                       # wiki viewer + chat
+deeprepo query "how does X work?"
+deeprepo query "what breaks if I change X?"
+deeprepo ingest .                                    # after making changes
+
+# Feature branch
+deeprepo ingest . --branch-isolation --base-branch main
+deeprepo status
+
+# Faster iteration
+deeprepo wiki . --workers 5                          # regen wiki only
+deeprepo ingest . --no-wiki                          # graph + embeddings only
+
+# MCP server
+deeprepo-mcp                                         # stdio transport for Cursor/Claude Desktop
 ```
-
-### During Development
-```bash
-# Quick questions
-python -c "
-from deeprepo import DeepRepoClient
-c = DeepRepoClient(provider_name='ollama')
-c.ingest('.')
-print(c.query('How do we handle errors in API calls?')['answer'])
-"
-```
-
-### Before Commit
-```bash
-# Review your changes
-python code_review_assistant.py .
-```
-
-### End of Day
-```bash
-# Update documentation
-python auto_document.py ~/my-project
-```
-
----
-
-## Pro Tips
-
-1. **Cache Your Index**: Keep a long-running DeepRepo instance to avoid re-ingesting:
-   ```python
-   # Keep this running in a terminal
-   python -c "
-   from deeprepo import DeepRepoClient
-   import code
-   client = DeepRepoClient(provider_name='ollama')
-   client.ingest('.')
-   code.interact(local={'client': client})
-   "
-   ```
-
-2. **Project-Specific Scripts**: Create a `scripts/` folder with project-specific DeepRepo tools
-
-3. **Share with Team**: Commit DeepRepo scripts to your repo so the whole team can use them
-
-4. **Combine with Git**: Use DeepRepo to understand what changed:
-   ```bash
-   git diff main...feature-branch --name-only | xargs python ask_about_files.py
-   ```
-
----
-
-## Next Steps
-
-1. **Choose 1-2 workflows** from above that fit your needs
-2. **Create the scripts** in your project
-3. **Integrate with your daily routine**
-4. **Share with your team**
-5. **Build custom tools** for your specific needs
-
----
-
-**Your DeepRepo + AI workflow is now supercharged!** 
-
-Questions? Build something cool with DeepRepo? Share it!

@@ -23,6 +23,7 @@ Complete installation and setup instructions for DeepRepo with all supported AI 
 - **Disk Space**: 
   - Core library: ~100MB
   - Ollama (optional): ~4GB for models
+  - Generated wiki: ~1-5MB per project (scales with file count)
 
 ## Core Installation
 
@@ -44,7 +45,7 @@ This installs the core library with minimal dependencies. Providers are loaded d
 ### 3. Verify Installation
 
 ```bash
-python -c "from deeprepo import DeepRepoClient; print('DeepRepo installed successfully')"
+python -c "from deeprepo import DeepRepoClient, StaleBaseError; print('DeepRepo installed successfully')"
 ```
 
 ## Provider Setup
@@ -89,6 +90,16 @@ ollama pull nomic-embed-text
 # LLM model (choose one or both)
 ollama pull llama3.2        # Recommended - 2GB
 ollama pull llama3.1        # Alternative - 4.7GB
+
+# Or use a different model (e.g., Gemma)
+ollama pull gemma3
+```
+
+```bash
+# Override default models via environment variables
+export OLLAMA_MODEL=gemma3                    # LLM (default: llama3.2)
+export OLLAMA_EMBED_MODEL=nomic-embed-text    # Embeddings (default: nomic-embed-text)
+export OLLAMA_BASE_URL=http://localhost:11434  # Server URL (default)
 ```
 
 ### Step 4: Verify Ollama
@@ -386,6 +397,21 @@ Provider        Status     Chunks     Ingest Time     Query Time
 ollama          PASS      8          0.74s           3.91s          
 
 ALL TESTS PASSED (1/1)
+```
+
+### Verify Phase 4 Features
+
+```bash
+# Verify Phase 4 features
+python -c "
+from deeprepo.graph import GraphStore
+g = GraphStore('/tmp/verify_install.db')
+g.set_state('test', 'ok')
+assert g.get_state('test') == 'ok'
+g.close()
+import os; os.remove('/tmp/verify_install.db')
+print('Phase 4 (graph + wiki + branch isolation): OK')
+"
 ```
 
 ---

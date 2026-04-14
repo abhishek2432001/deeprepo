@@ -38,11 +38,21 @@ See the configuration sections below for Cursor, Claude Desktop, and other clien
 
 | Tool | Description | Parameters |
 |------|-------------|------------|
-| `ingest_codebase` | Ingest a directory into the vector store | `path`, `chunk_size`, `overlap` |
+| `ingest_codebase` | Ingest directory (graph + wiki + embeddings) | `path`, `chunk_size`, `overlap` |
 | `query_codebase` | Query the knowledge base with RAG | `question`, `top_k` |
-| `search_similar` | Find similar code without LLM | `query`, `top_k` |
-| `get_stats` | Get vector store statistics | None |
+| `search_similar` | Semantic file search without LLM | `query`, `top_k` |
+| `get_stats` | Get knowledge base statistics | None |
 | `clear_history` | Clear conversation history | None |
+| `get_blast_radius` | Files affected by changes to a file | `filepath`, `depth` |
+| `get_file_skeleton` | Function/class signatures for a file | `filepath` |
+| `find_symbol` | Find exact definition of a symbol | `name` |
+| `get_wiki_page` | Auto-generated wiki page for a file | `filepath`, `concise` |
+| `search_wiki` | FTS search across wiki pages | `query` |
+| `get_repo_overview` | High-level repository overview | None |
+| `smart_query` | Intent-aware query with optimal context | `question`, `top_k` |
+| `explain_routing` | Show routing decision for a query | `question` |
+| `get_freshness_status` | Branch + cache freshness status | None |
+| `get_wiki_dir` | Path to browsable wiki folder | None |
 
 ## Available Resources
 
@@ -75,7 +85,8 @@ Create or edit `~/.cursor/mcp.json`:
       "args": ["-m", "deeprepo.mcp.server"],
       "cwd": "/path/to/your/project",
       "env": {
-        "LLM_PROVIDER": "ollama"
+        "LLM_PROVIDER": "ollama",
+        "OLLAMA_MODEL": "llama3.1:8b"
       }
     }
   }
@@ -93,7 +104,8 @@ Create or edit `~/Library/Application Support/Claude/claude_desktop_config.json`
       "command": "python",
       "args": ["-m", "deeprepo.mcp.server"],
       "env": {
-        "LLM_PROVIDER": "ollama"
+        "LLM_PROVIDER": "ollama",
+        "OLLAMA_MODEL": "llama3.1:8b"
       }
     }
   }
@@ -111,7 +123,8 @@ Create or edit `%APPDATA%\Claude\claude_desktop_config.json`:
       "command": "python",
       "args": ["-m", "deeprepo.mcp.server"],
       "env": {
-        "LLM_PROVIDER": "ollama"
+        "LLM_PROVIDER": "ollama",
+        "OLLAMA_MODEL": "llama3.1:8b"
       }
     }
   }
@@ -129,7 +142,8 @@ The MCP configuration can be set in `.gemini/mcp_servers.json`:
       "command": "python",
       "args": ["-m", "deeprepo.mcp.server"],
       "env": {
-        "LLM_PROVIDER": "ollama"
+        "LLM_PROVIDER": "ollama",
+        "OLLAMA_MODEL": "llama3.1:8b"
       }
     }
   }
@@ -148,6 +162,9 @@ The MCP configuration can be set in `.gemini/mcp_servers.json`:
 | `ANTHROPIC_API_KEY` | Anthropic API key (if using Anthropic) | - |
 | `GOOGLE_API_KEY` | Google API key (if using Gemini) | - |
 | `HF_API_KEY` or `HUGGINGFACE_API_KEY` | HuggingFace API key (if using HuggingFace) | - |
+| `OLLAMA_MODEL` | Ollama LLM model override | `llama3.1:8b` |
+| `OLLAMA_EMBED_MODEL` | Ollama embedding model override | `nomic-embed-text` |
+| `OLLAMA_BASE_URL` | Ollama server URL | `http://localhost:11434` |
 
 ### Using Different Providers for Embeddings and LLM
 
@@ -174,6 +191,29 @@ You can use different providers for embeddings and LLM by setting both environme
 - **Anthropic LLM**: Since Anthropic doesn't have embeddings, pair it with OpenAI or HuggingFace
 - **Cost optimization**: Use free HuggingFace for embeddings, paid OpenAI for LLM
 - **Performance**: Use fast OpenAI for embeddings, powerful Anthropic for LLM
+
+---
+
+## Branch Isolation
+
+When configured with branch isolation, each git branch gets its own SQLite database and wiki folder:
+
+```json
+{
+  "mcpServers": {
+    "deeprepo": {
+      "command": "python",
+      "args": ["-m", "deeprepo.mcp.server"],
+      "env": {
+        "LLM_PROVIDER": "ollama",
+        "OLLAMA_MODEL": "llama3.1:8b"
+      }
+    }
+  }
+}
+```
+
+Use `get_freshness_status` to check if the cache is up-to-date, and `get_wiki_dir` to find the browsable wiki.
 
 ---
 
@@ -204,17 +244,29 @@ Once configured, you can interact with DeepRepo through your AI assistant:
 
 **User:** "Ingest the codebase at /Users/me/myproject"
 
-**AI:** Using the `ingest_codebase` tool...
+**AI:** Using `ingest_codebase`...
 > Ingestion Complete!
-> Path: /Users/me/myproject
-> Chunks processed: 234
 > Files scanned: 45
+> Graph: 234 nodes, 189 edges
+> Wiki: 45 pages generated
+> Embeddings: 45 file-level embeddings stored
+> Wiki browsable at: /Users/me/myproject/.deeprepo/main-wiki/
 
-**User:** "How does authentication work in this codebase?"
+**User:** "What files are affected if I change auth.py?"
 
-**AI:** Using the `query_codebase` tool...
-> Based on the codebase analysis, authentication is handled by...
-> [detailed answer with source references]
+**AI:** Using `get_blast_radius`...
+> Files affected by changes to 'auth.py' (depth=2):
+>   1. routes/login.py
+>   2. middleware/session.py
+>   3. tests/test_auth.py
+> Total: 3 file(s)
+
+**User:** "How does authentication work?"
+
+**AI:** Using `smart_query`...
+> Intent: explain | Strategy: wiki_skeleton | Retrieval: embeddings | Est. tokens: 600
+> Answer: Authentication is handled by auth.py which...
+> Sources: auth.py, routes/login.py
 
 ---
 

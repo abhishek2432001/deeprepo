@@ -1,15 +1,9 @@
-"""Ingestion Engine - File scanning and text chunking.
-
-Provides utilities for traversing directories and splitting files into
-chunks suitable for embedding.
-"""
+"""File scanning and text chunking for ingestion."""
 
 import os
 from pathlib import Path
 from typing import Generator
 
-
-# Directories to ignore during scanning
 IGNORED_DIRS = {
     '.git',
     '__pycache__',
@@ -23,8 +17,6 @@ IGNORED_DIRS = {
     'build',
     '.egg-info',
 }
-
-# Binary file extensions to skip
 BINARY_EXTENSIONS = {
     '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.ico', '.svg',
     '.mp3', '.mp4', '.wav', '.avi', '.mov',
@@ -38,23 +30,13 @@ BINARY_EXTENSIONS = {
 
 
 def is_binary_file(filepath: Path) -> bool:
-    """Check if a file is binary based on extension or content.
-    
-    Args:
-        filepath: Path to the file to check.
-        
-    Returns:
-        True if the file appears to be binary, False otherwise.
-    """
-    # Check extension first
+    """Check if a file is binary based on extension or content."""
     if filepath.suffix.lower() in BINARY_EXTENSIONS:
         return True
         
-    # Try reading first few bytes to detect binary content
     try:
         with open(filepath, 'rb') as f:
             chunk = f.read(1024)
-            # Check for null bytes (common in binary files)
             if b'\x00' in chunk:
                 return True
     except (IOError, PermissionError):
@@ -64,16 +46,7 @@ def is_binary_file(filepath: Path) -> bool:
 
 
 def scan_directory(root_path: str | Path) -> Generator[Path, None, None]:
-    """Recursively scan a directory for text files.
-    
-    Ignores .git, __pycache__, node_modules, and binary files.
-    
-    Args:
-        root_path: Root directory to scan.
-        
-    Yields:
-        Path objects for each valid text file found.
-    """
+    """Recursively yield text files, skipping ignored dirs and binaries."""
     root = Path(root_path)
     
     if not root.exists():
@@ -83,17 +56,14 @@ def scan_directory(root_path: str | Path) -> Generator[Path, None, None]:
         raise NotADirectoryError(f"Not a directory: {root_path}")
     
     for dirpath, dirnames, filenames in os.walk(root):
-        # Modify dirnames in-place to skip ignored directories
         dirnames[:] = [d for d in dirnames if d not in IGNORED_DIRS]
         
         for filename in filenames:
             filepath = Path(dirpath) / filename
             
-            # Skip hidden files
             if filename.startswith('.'):
                 continue
                 
-            # Skip binary files
             if is_binary_file(filepath):
                 continue
                 
@@ -105,19 +75,7 @@ def chunk_text(
     chunk_size: int = 1000,
     overlap: int = 100
 ) -> list[str]:
-    """Split text into overlapping chunks.
-    
-    Uses character-based chunking with overlap to preserve context
-    at chunk boundaries.
-    
-    Args:
-        text: The text to split into chunks.
-        chunk_size: Maximum characters per chunk. Defaults to 1000.
-        overlap: Number of overlapping characters between chunks. Defaults to 100.
-        
-    Returns:
-        List of text chunks.
-    """
+    """Split text into overlapping chunks."""
     if not text or not text.strip():
         return []
         
@@ -132,10 +90,8 @@ def chunk_text(
         if chunk.strip():  # Only add non-empty chunks
             chunks.append(chunk)
             
-        # Move start forward by (chunk_size - overlap)
         start += chunk_size - overlap
-        
-        # Prevent infinite loop if overlap >= chunk_size
+
         if chunk_size <= overlap:
             start = end
             
@@ -146,25 +102,12 @@ def ingest_directory(
     root_path: str | Path,
     chunk_size: int = 1000,
     overlap: int = 100
-) -> list[dict]:
-    """Ingest all files in a directory into chunks.
-    
-    Scans the directory recursively, reads each text file, and splits
-    content into overlapping chunks with metadata.
-    
-    Args:
-        root_path: Root directory to ingest.
-        chunk_size: Maximum characters per chunk. Defaults to 1000.
-        overlap: Number of overlapping characters between chunks. Defaults to 100.
-        
-    Returns:
-        List of chunk dictionaries containing:
-            - 'text': The chunk text content
-            - 'metadata': Dict with 'filepath', 'chunk_index', 'total_chunks'
-    """
+) -> tuple[list[dict], list[tuple[str, str]]]:
+    """Scan directory, read text files, and return chunks with metadata."""
     root = Path(root_path)
     all_chunks = []
-    
+    file_contents: list[tuple[str, str]] = []  # (relative_path, content)
+
     for filepath in scan_directory(root):
         try:
             with open(filepath, 'r', encoding='utf-8', errors='ignore') as f:
@@ -172,21 +115,29 @@ def ingest_directory(
         except (IOError, PermissionError) as e:
             print(f"Warning: Could not read {filepath}: {e}")
             continue
-            
+
         if not content.strip():
             continue
-            
+
+        relative_path = str(filepath.relative_to(root))
+        file_contents.append((relative_path, content))
+
         file_chunks = chunk_text(content, chunk_size, overlap)
-        relative_path = filepath.relative_to(root)
-        
+
         for i, chunk_text_content in enumerate(file_chunks):
             all_chunks.append({
                 'text': chunk_text_content,
                 'metadata': {
-                    'filepath': str(relative_path),
+                    'filepath': relative_path,
                     'chunk_index': i,
                     'total_chunks': len(file_chunks),
                 }
             })
-            
-    return all_chunks
+
+    return all_chunks, file_contents
+
+
+def compute_file_hash(content: str) -> str:
+    """SHA-256 hex digest of file content."""
+    import hashlib
+    return hashlib.sha256(content.encode("utf-8", errors="ignore")).hexdigest()
