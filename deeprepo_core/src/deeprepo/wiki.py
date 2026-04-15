@@ -1007,12 +1007,7 @@ class WikiEngine:
                 fallback_provider=fallback_provider,
             )
             content_md = _clean_response(raw)
-            safe_name = re.sub(r"[^a-zA-Z0-9_]", "_", module_name)
-            # Filesystem limit is 255 bytes; cap well below to leave room for path
-            if len(safe_name) > 180:
-                import hashlib as _hl
-                suffix = _hl.sha256(module_name.encode()).hexdigest()[:8]
-                safe_name = safe_name[:170] + "_" + suffix
+            safe_name = self._module_safe_name(module_name)
             md_path = os.path.join(self.wiki_dir, f"{safe_name}.md")
 
             self._dual_write(
@@ -1126,11 +1121,22 @@ class WikiEngine:
 
     # ── Parent page generation ────────────────────────────────────────────────
 
+    @staticmethod
+    def _module_safe_name(module_name: str) -> str:
+        """Flat, filesystem-safe filename stem for any module name."""
+        import hashlib as _hl
+        safe = re.sub(r"[^a-zA-Z0-9_]", "_", module_name)
+        if len(safe) > 180:
+            suffix = _hl.sha256(module_name.encode()).hexdigest()[:8]
+            safe = safe[:170] + "_" + suffix
+        return safe
+
     def generate_parent_page(
         self,
         module_name: str,
         module_path: str,
         children_files: list[str],
+        child_modules: dict[str, dict] | None = None,
         module_tree: dict | None = None,
         commit: str | None = None,
         force: bool = False,
@@ -1141,13 +1147,29 @@ class WikiEngine:
 
         children_parts = []
         children_names = []
-        for child_fp in children_files:
-            child_page = self._cache.get(child_fp)
-            stem = Path(child_fp).stem
-            children_names.append(f"[{stem}]({stem}.md)")
-            if child_page:
-                summary = child_page.get("summary", "")
-                children_parts.append(f"- **{stem}**: {summary}")
+
+        if child_modules:
+            # Use child module names for correct wiki links (flat filenames)
+            for child_mod_name, child_info in child_modules.items():
+                child_safe = self._module_safe_name(child_mod_name)
+                label = child_mod_name.split(".")[-1]
+                children_names.append(f"[{label}]({child_safe}.md)")
+                # Get summary from any of the child's source files
+                for fp in child_info.get("components", [])[:1]:
+                    child_page = self._cache.get(fp) or self._cache.get(f"_module_{child_mod_name}")
+                    if child_page:
+                        summary = child_page.get("summary", "")
+                        children_parts.append(f"- **{label}**: {summary}")
+                        break
+        else:
+            # Fallback: source file stems (legacy path, links may break)
+            for child_fp in children_files:
+                child_page = self._cache.get(child_fp)
+                stem = Path(child_fp).stem
+                children_names.append(f"[{stem}]({stem}.md)")
+                if child_page:
+                    summary = child_page.get("summary", "")
+                    children_parts.append(f"- **{stem}**: {summary}")
 
         if not children_parts:
             return None
@@ -1174,11 +1196,9 @@ class WikiEngine:
                 fallback_provider=fallback_provider,
             )
             content_md = _clean_response(raw)
-            _safe_part = re.sub(r"[^a-zA-Z0-9_]", "_", module_name.split(".")[-1])
-            _safe_dir  = "/".join(
-                re.sub(r"[^a-zA-Z0-9_]", "_", p) for p in module_path.split(".")
-            )
-            md_path = os.path.join(self.wiki_dir, _safe_dir, f"{_safe_part}.md")
+            # All pages flat at wiki root — no subdirectories
+            safe_name = self._module_safe_name(module_name)
+            md_path = os.path.join(self.wiki_dir, f"{safe_name}.md")
             self._dual_write(
                 filepath=f"_module_{module_name}",
                 md_path=md_path,
@@ -1480,6 +1500,7 @@ class WikiEngine:
                         module_name=module_name,
                         module_path=module_info.get("path", module_name),
                         children_files=children_files,
+                        child_modules=children,  # pass child module dict for correct links
                         module_tree=module_tree,
                         force=force,
                         fallback_provider=fallback_provider,
