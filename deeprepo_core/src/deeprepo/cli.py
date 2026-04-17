@@ -8,7 +8,7 @@ import sys
 import time
 import textwrap
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 RESET   = "\033[0m"
 BOLD    = "\033[1m"
@@ -150,25 +150,17 @@ def _build_client(args: argparse.Namespace) -> Any:
     )
 
 
-def _patch_wiki_progress(client: Any) -> dict:
-    """Wrap WikiEngine generation methods to emit live progress lines."""
+def _patch_wiki_progress(client: Any) -> tuple[dict, Callable[[str, int, int], None]]:
+    """Wrap WikiEngine generation methods to emit live progress lines.
+
+    Returns (counters, progress_cb). Pass progress_cb to bulk_generate so
+    leaf-page progress reflects the true leaf-module total (the engine
+    clusters many source files into one leaf page), not the raw file count.
+    """
     engine = client.wiki_engine
-    original_leaf     = engine.generate_leaf_page
     original_parent   = engine.generate_parent_page
     original_overview = engine.generate_repo_overview
     counters = {"done": 0, "total": 0}
-
-    def _leaf(*a, **kw):
-        module_name = a[0] if a else kw.get("module_name", "?")
-        sp = Spinner(f"Wiki: {module_name}")
-        sp.tick()
-        result = original_leaf(*a, **kw)
-        counters["done"] += 1
-        if result:
-            sp.done(f"Wiki page ready: {_c(module_name, BOLD)} ({counters['done']}/{counters['total']})")
-        else:
-            warn(f"Wiki skipped: {module_name}")
-        return result
 
     def _parent(*a, **kw):
         module_name = a[0] if a else kw.get("module_name", "?")
@@ -187,10 +179,14 @@ def _patch_wiki_progress(client: Any) -> dict:
             sp.done("Project overview ready")
         return result
 
-    engine.generate_leaf_page     = _leaf
+    def progress_cb(module_name: str, done: int, total: int) -> None:
+        counters["done"]  = done
+        counters["total"] = total
+        ok(f"Wiki page ready: {_c(module_name, BOLD)} ({done}/{total})")
+
     engine.generate_parent_page   = _parent
     engine.generate_repo_overview = _overview
-    return counters
+    return counters, progress_cb
 
 
 def cmd_ingest(args: argparse.Namespace) -> int:
@@ -227,14 +223,14 @@ def cmd_ingest(args: argparse.Namespace) -> int:
             err(f"File scan failed: {e}")
             return 1
 
-        counters = _patch_wiki_progress(client)
-        counters["total"] = len(file_contents)
+        counters, progress_cb = _patch_wiki_progress(client)
         wiki_start = time.time()
         try:
             wiki_stats = client.wiki_engine.bulk_generate(
                 file_contents=file_contents,
                 graph_store=client.graph_store,
                 max_workers=getattr(args, "workers", 3),
+                progress_callback=progress_cb,
             )
             print()
             failed = wiki_stats.get("failed", 0)
@@ -325,14 +321,14 @@ def cmd_wiki(args: argparse.Namespace) -> int:
         return 1
 
     step("Generating concept wiki pages")
-    counters = _patch_wiki_progress(client)
-    counters["total"] = len(file_contents)
+    counters, progress_cb = _patch_wiki_progress(client)
     start = time.time()
     try:
         stats = client.wiki_engine.bulk_generate(
             file_contents=file_contents,
             graph_store=client.graph_store,
             max_workers=getattr(args, "workers", 3),
+            progress_callback=progress_cb,
         )
     except Exception as e:
         err(f"Wiki generation failed: {e}")

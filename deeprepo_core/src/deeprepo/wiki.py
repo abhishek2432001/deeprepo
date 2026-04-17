@@ -766,6 +766,12 @@ class WikiEngine:
         self.cluster_provider = cluster_provider or llm_provider
         self.graph_store = graph_store
         self._cache: dict[str, dict[str, Any]] = {}
+        # Maps an *original* module name (as it appears in the module tree /
+        # child_modules dict) to the safe filename stem of the .md page that
+        # actually got written for it. Populated by bulk_generate so that
+        # parent pages and the overview emit links that resolve to real files
+        # even when leaf collection renames modules (tiny-merge, batch split).
+        self._module_to_filename: dict[str, str] = {}
         self._load_cache_from_db()
 
     # ── Cache helpers ─────────────────────────────────────────────────────────
@@ -1151,7 +1157,12 @@ class WikiEngine:
         if child_modules:
             # Use child module names for correct wiki links (flat filenames)
             for child_mod_name, child_info in child_modules.items():
-                child_safe = self._module_safe_name(child_mod_name)
+                # Prefer the actual filename written by bulk_generate (handles
+                # tiny-merge renames). Fall back to the safe name, which is
+                # correct for non-leaf / non-merged children.
+                child_safe = self._module_to_filename.get(
+                    child_mod_name, self._module_safe_name(child_mod_name)
+                )
                 label = child_mod_name.split(".")[-1]
                 children_names.append(f"[{label}]({child_safe}.md)")
                 # Get summary from any of the child's source files
@@ -1230,7 +1241,20 @@ class WikiEngine:
 
         module_parts = []
         for fp, summary in sorted(summaries.items()):
-            doc_ref = f"[{Path(fp).stem}.md]({Path(fp).stem}.md)"
+            # Resolve the real wiki filename for this source file. Leaf pages
+            # are written under the module's safe name (possibly renamed by
+            # tiny-merge), not the source file's stem — using the stem here
+            # produced links to .md files that were never generated.
+            cache_entry = self._cache.get(fp, {})
+            module_key = cache_entry.get("filepath", "")
+            if isinstance(module_key, str) and module_key.startswith("_module_"):
+                mod_name = module_key[len("_module_"):]
+                filename = self._module_to_filename.get(
+                    mod_name, self._module_safe_name(mod_name)
+                )
+            else:
+                filename = Path(fp).stem
+            doc_ref = f"[{filename}.md]({filename}.md)"
             module_parts.append(f"- **{fp}** ({doc_ref}): {summary}")
         module_summaries = "\n".join(module_parts)
 
@@ -1297,6 +1321,10 @@ class WikiEngine:
             logger.info("No LLM provider configured — skipping wiki generation")
             return stats
 
+        # Fresh remap per run — stale entries from previous runs would point
+        # parent links at .md files that may no longer exist.
+        self._module_to_filename = {}
+
         # ── Step 1: Cluster files into modules ────────────────────────────────
         dir_tree = cluster_by_directory(file_contents)
         llm_clusters = self._cluster_with_llm(file_contents, dir_tree)
@@ -1320,7 +1348,9 @@ class WikiEngine:
             if not pending_merge:
                 return
             if len(pending_merge) == 1:
-                leaf_modules.append((pending_merge[0][0], pending_merge[0][1]))
+                only_name = pending_merge[0][0]
+                leaf_modules.append((only_name, pending_merge[0][1]))
+                self._module_to_filename[only_name] = self._module_safe_name(only_name)
             else:
                 # Use a short hash-based name to avoid filesystem 255-char limit
                 names_str = "+".join(n for n, _, _ in pending_merge)
@@ -1332,6 +1362,12 @@ class WikiEngine:
                 for _, files, _ in pending_merge:
                     combined_files.extend(files)
                 leaf_modules.append((combined_name, combined_files))
+                # Every constituent module shares the merged page filename so
+                # parent-page links resolve instead of pointing at a .md that
+                # was never written.
+                combined_safe = self._module_safe_name(combined_name)
+                for constituent_name, _, _ in pending_merge:
+                    self._module_to_filename[constituent_name] = combined_safe
             pending_merge.clear()
 
         for _depth, module_name in order:
@@ -1375,6 +1411,13 @@ class WikiEngine:
 
                 if not self.needs_update(f"_module_{batch_name}", combined_sha):
                     stats["skipped"] += 1
+                    # Page already exists on disk from a prior run under its
+                    # own name; make sure parent links can still find it.
+                    self._module_to_filename[batch_name] = self._module_safe_name(batch_name)
+                    if idx == 0:
+                        self._module_to_filename.setdefault(
+                            module_name, self._module_safe_name(module_name)
+                        )
                     continue
 
                 batch_tokens = sum(_count_tokens(c) for _, c in batch)
@@ -1389,6 +1432,15 @@ class WikiEngine:
                 else:
                     _flush_merge()  # flush any pending tiny modules first
                     leaf_modules.append((batch_name, batch))
+                    # Record actual saved filename so parent pages can link
+                    # to the right .md for this leaf. For batch-split leaves,
+                    # the original module_name maps to the first batch's page;
+                    # later batch_names map to their own split pages.
+                    self._module_to_filename[batch_name] = self._module_safe_name(batch_name)
+                    if idx == 0:
+                        self._module_to_filename.setdefault(
+                            module_name, self._module_safe_name(module_name)
+                        )
 
         _flush_merge()  # flush any remaining tiny modules
 
